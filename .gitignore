@@ -1,0 +1,64 @@
+# Build directories
+build/
+build-*/
+out/
+cmake-build-*/
+*.dir/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+install_manifest.txt
+
+# Visual Studio
+*.sln
+*.slnx
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+.vs/
+*.suo
+*.user
+*.aps
+*.ncb
+*.sdf
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Linux / misc
+*.o
+*.a
+*.so
+*.so.*
+*.dylib
+
+# Game saves
+match3_save.dat
+*.dat
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# EasyX legacy artifacts (Windows-only, no longer used)
+EasyXw.lib
+build.bat
+CMakeLists_game.txt

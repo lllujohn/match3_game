@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmake --version)",
+      "Bash(brew list *)",
+      "Bash(brew --prefix sdl2)",
+      "Bash(pkg-config --cflags sdl2)",
+      "Bash(sdl2-config --cflags)",
+      "Bash(cmake .. -DSDL2_DIR=/opt/homebrew/lib/cmake/SDL2)",
+      "Bash(grep '#define SDLK_' /opt/homebrew/include/SDL2/SDL_keycode.h | grep -i \"p\\\\|s\\\\|l\\\\|r\\\\|u\" | head -20)",
+      "Bash(./build/tests/test_model)"
+    ]
+  }
+}

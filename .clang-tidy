@@ -1,0 +1,43 @@
+---
+# clang-tidy configuration for C11 Match-3 project
+# Run: clang-tidy src/*.c -- -std=c11 -Iinclude $(sdl2-config --cflags)
+
+Checks: >
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  bugprone-*,
+  cert-*,
+  misc-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -readability-magic-numbers,
+  -readability-function-cognitive-complexity,
+  -misc-no-recursion,
+  -cert-err33-c,
+  -bugprone-easily-swappable-parameters
+
+WarningsAsErrors: >
+  clang-analyzer-*,
+  bugprone-use-after-move,
+  bugprone-undefined-memory-manipulation
+
+HeaderFilterRegex: 'include/.*\.h'
+
+CheckOptions:
+  - key:   readability-identifier-naming.FunctionCase
+    value: lower_case
+  - key:   readability-identifier-naming.VariableCase
+    value: lower_case
+  - key:   readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+  - key:   readability-identifier-naming.EnumConstantCase
+    value: UPPER_CASE
+  - key:   readability-identifier-naming.StructCase
+    value: CamelCase
+  - key:   readability-identifier-naming.TypedefCase
+    value: CamelCase
+  - key:   readability-braces-around-statements.ShortStatementLines
+    value: '2'
+  - key:   bugprone-assert-side-effect.AssertMacros
+    value: assert,MATCH3_ASSERT
