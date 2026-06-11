@@ -16,8 +16,8 @@ target_include_directories(test_model PRIVATE
 )
 
 target_compile_options(test_model PRIVATE
-    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -g3>
-    $<$<CXX_COMPILER_ID:MSVC>:/W4 /utf-8>
+    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -g3>
+    $<$<C_COMPILER_ID:MSVC>:/W4 /utf-8>
 )
 
 # Inherit sanitizer flags from parent if enabled

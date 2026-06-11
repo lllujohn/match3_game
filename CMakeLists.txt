@@ -86,6 +86,7 @@ target_include_directories(match3_game PRIVATE
 #  Link SDL2 family
 # --------------------------------------------------------------
 target_link_libraries(match3_game PRIVATE
+    SDL2::SDL2main
     SDL2::SDL2
     SDL2_ttf::SDL2_ttf
     SDL2_image::SDL2_image
