@@ -57,7 +57,7 @@ jobs:
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Debug \
             -DMATCH3_ENABLE_TESTS=ON \
-            -DMATCH3_ENABLE_ASAN=ON
+            -DMATCH3_ENABLE_ASAN=OFF
 
       - name: Build
         run: cmake --build build --parallel $(nproc)

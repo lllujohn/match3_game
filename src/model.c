@@ -138,9 +138,7 @@ bool model_init_board(GameBoard *board)
     if (!board)
         return false;
 
-    uint32_t saved_hi = board->high_score;
     memset(board, 0, sizeof(GameBoard));
-    board->high_score            = saved_hi;
     board->current_state          = GAME_STATE_MAIN_MENU;
     board->highlighted_menu_option = 0;
     board->score              = 0;
@@ -172,14 +170,10 @@ bool model_init_board_with_difficulty(GameBoard *board, int difficulty)
     if (!board || difficulty < 0 || difficulty > 2)
         return false;
 
-    uint32_t saved_hi = board->high_score;
-    uint32_t saved_coins = board->total_coins;
     memset(board, 0, sizeof(GameBoard));
 
     board->current_state      = GAME_STATE_WAITING_INPUT;
     board->score              = 0;
-    board->high_score         = saved_hi;
-    board->total_coins        = saved_coins;
     board->prop_hammer_count  = 5;
     board->prop_wand_count    = 5;
     board->prop_shuffle_count = 5;
