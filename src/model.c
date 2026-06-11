@@ -432,7 +432,7 @@ bool model_apply_gravity(GameBoard *board)
         int write_row = BOARD_HEIGHT - 1;
 
         for (int r = BOARD_HEIGHT - 1; r >= 0; r--) {
-            if (board->board[r][c].is_stone) {
+            if (board->board[r][c].is_stone || board->board[r][c].has_ice) {
                 write_row = r - 1;
                 continue;
             }
@@ -521,6 +521,12 @@ bool model_swap_gems(GameBoard *board,
     if (!((dr == 1 && dc == 0) || (dr == 0 && dc == 1)))
         return false;
 
+    /* Forbid swapping unmovable obstacles (stones and ice) */
+    if (board->board[r1][c1].is_stone || board->board[r2][c2].is_stone)
+        return false;
+    if (board->board[r1][c1].has_ice || board->board[r2][c2].has_ice)
+        return false;
+
     /* Perform swap */
     Gem tmp              = board->board[r1][c1];
     board->board[r1][c1] = board->board[r2][c2];
@@ -581,6 +587,12 @@ bool model_swap_gems(GameBoard *board,
 static uint32_t simulate_swap(GameBoard *board,
                                int r1, int c1, int r2, int c2)
 {
+    /* Cannot swap stones or ice */
+    if (board->board[r1][c1].is_stone || board->board[r2][c2].is_stone)
+        return 0;
+    if (board->board[r1][c1].has_ice || board->board[r2][c2].has_ice)
+        return 0;
+
     /* Swap */
     Gem tmp              = board->board[r1][c1];
     board->board[r1][c1] = board->board[r2][c2];
@@ -874,6 +886,10 @@ bool model_prop_hammer_smash(GameBoard *board, uint8_t row, uint8_t col) {
 
 bool model_prop_wand_swap(GameBoard *board, uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2) {
     if (!board) return false;
+    
+    /* Forbid wand swap on stones (ice is okay to swap with magic wand if we want, but let's forbid it for consistency) */
+    if (board->board[r1][c1].is_stone || board->board[r2][c2].is_stone) return false;
+    if (board->board[r1][c1].has_ice || board->board[r2][c2].has_ice) return false;
     if (r1 >= BOARD_HEIGHT || c1 >= BOARD_WIDTH || r2 >= BOARD_HEIGHT || c2 >= BOARD_WIDTH) return false;
     if (board->board[r1][c1].gem_type == GEM_EMPTY || board->board[r2][c2].gem_type == GEM_EMPTY) return false;
     if (board->prop_wand_count == 0) return false;
