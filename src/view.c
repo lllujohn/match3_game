@@ -1,5 +1,6 @@
 #include "view.h"
 #include "types.h"
+#include "model.h"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -303,7 +304,7 @@ void view_spawn_particles(float cx, float cy, uint8_t gem_type)
 {
     if (gem_type >= MAX_GEM_TYPES) return;
     
-    SDL_Color c = GEM_FILL[gem_type];
+    SDL_Color c = kGemFill[gem_type];
     
     for (int i = 0; i < 8; i++) { /* spawn 8 particles */
         for (int j = 0; j < MAX_PARTICLES; j++) {
@@ -1212,7 +1213,7 @@ void view_draw_game_over_screen(const GameBoard *board)
 
     const char *title_text = "游戏结束";
     SDL_Color title_color = kDangerColor;
-    if (board->moves_remaining > 0 || model_is_deadlock(board) == false) {
+    if (board->moves_remaining > 0 || model_is_deadlock((GameBoard *)board) == false) {
         /* Not a game over by fail, maybe reached target? */
         title_color = kAccentGreenColor;
     }
