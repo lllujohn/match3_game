@@ -98,10 +98,10 @@ if(APPLE)
     target_link_libraries(match3_game PRIVATE "-framework Cocoa")
 endif()
 
-# On Linux we may also need pthreads and dl
+# On Linux we may also need pthreads, dl, and the math library
 if(UNIX AND NOT APPLE)
     find_package(Threads REQUIRED)
-    target_link_libraries(match3_game PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+    target_link_libraries(match3_game PRIVATE Threads::Threads ${CMAKE_DL_LIBS} m)
 endif()
 
 # --------------------------------------------------------------
