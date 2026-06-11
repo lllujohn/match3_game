@@ -15,19 +15,19 @@
  *  Colour palette  (Apple-inspired dark-mode Morandi system)
  * ================================================================ */
 
-static const SDL_Color C_BG             = {20,  15,  45,  255};
-static const SDL_Color C_PANEL          = {35,  30,  65,  255};
-static const SDL_Color C_PANEL_BORDER   = {60,  50,  100, 255};
-static const SDL_Color C_ACCENT_BLUE    = {0,   210, 255, 255};
-static const SDL_Color C_ACCENT_GREEN   = {0,   255, 150, 255};
-static const SDL_Color C_TEXT_PRIMARY   = {255, 255, 255, 255};
-static const SDL_Color C_TEXT_SECONDARY = {240, 230, 255, 255};
-static const SDL_Color C_TEXT_HINT      = {200, 190, 230, 255};
-static const SDL_Color C_MARK_RING      = {255, 215, 0,   200};
-static const SDL_Color C_DANGER         = {255, 80,  110, 255};
+static const SDL_Color kBgColor             = {20,  15,  45,  255};
+static const SDL_Color kPanelColor          = {35,  30,  65,  255};
+static const SDL_Color kPanelBorderColor   = {60,  50,  100, 255};
+static const SDL_Color kAccentBlueColor    = {0,   210, 255, 255};
+static const SDL_Color kAccentGreenColor   = {0,   255, 150, 255};
+static const SDL_Color kTextPrimaryColor   = {255, 255, 255, 255};
+static const SDL_Color kTextSecondaryColor = {240, 230, 255, 255};
+static const SDL_Color kTextHintColor      = {200, 190, 230, 255};
+static const SDL_Color kMarkRingColor      = {255, 215, 0,   200};
+static const SDL_Color kDangerColor         = {255, 80,  110, 255};
 
 /* Morandi gem fill colours */
-static const SDL_Color GEM_FILL[MAX_GEM_TYPES] = {
+static const SDL_Color kGemFill[MAX_GEM_TYPES] = {
     {224, 108, 108, 255},  /* RED      */
     {86,  194, 155, 255},  /* MINT     */
     {85,  143, 220, 255},  /* BLUE     */
@@ -38,7 +38,7 @@ static const SDL_Color GEM_FILL[MAX_GEM_TYPES] = {
 };
 
 /* Specular highlight (upper-third gloss) */
-static const SDL_Color GEM_HIGHLIGHT[MAX_GEM_TYPES] = {
+static const SDL_Color kGemHighlight[MAX_GEM_TYPES] = {
     {255, 170, 170, 160},
     {160, 230, 210, 160},
     {160, 200, 245, 160},
@@ -763,14 +763,14 @@ static void draw_gem(const Gem *g, bool is_selected)
         SDL_RenderCopy(r, g_view.tex_gem[g->gem_type], NULL, &dst);
     } else {
         /* Gem body fallback */
-        fill_rounded_rect(r, x, y, w, h, cr, GEM_FILL[g->gem_type]);
+        fill_rounded_rect(r, x, y, w, h, cr, kGemFill[g->gem_type]);
 
         /* Specular highlight (upper-third ellipse) */
         if (scale > 0.5f) {
-            SDL_Color hi = GEM_HIGHLIGHT[g->gem_type];
+            SDL_Color hi_color = kGemHighlight[g->gem_type];
             int hw = w / 4;
             int hh = h / 6;
-            fill_circle(r, cx, y + hh + 2, hw > 2 ? hw : 2, hi);
+            fill_circle(r, cx, y + hh + 2, hw > 2 ? hw : 2, hi_color);
         }
     }
 
@@ -809,13 +809,16 @@ static void draw_gem(const Gem *g, bool is_selected)
         draw_rounded_rect_outline(r, x - 2, y - 2, w + 4, h + 4, cr + 1, glow_c, 3);
         draw_rounded_rect_outline(r, x, y, w, h, cr, (SDL_Color){255, 255, 255, 255}, 3);
     } else {
-        draw_rounded_rect_outline(r, x, y, w, h, cr, C_PANEL_BORDER, 1);
+        draw_rounded_rect_outline(r, x, y, w, h, cr, kPanelBorderColor, 1);
+        if (is_selected) {
+            draw_rounded_rect_outline(r, x - 2, y - 2, w + 4, h + 4, cr, kMarkRingColor, 2);
+        }
     }
 
     /* Elimination flash-ring */
     if (g->is_marked_for_elimination) {
         draw_rounded_rect_outline(r, x - 1, y - 1, w + 2, h + 2,
-                                  cr, C_MARK_RING, 2);
+                                  cr, kMarkRingColor, 2);
     }
 }
 
@@ -846,47 +849,47 @@ static void draw_info_panel(const GameBoard *board)
     int tx = px + pw / 2;
     int ty = py + 36;
 
-    draw_text_centered(r, g_view.font_large, "消消乐", tx, ty, C_TEXT_SECONDARY);
-    ty += 32;
+    draw_text_centered(r, g_view.font_large, "消消乐", tx, ty, kTextSecondaryColor);
+    ty += 30;
 
     /* Divider */
-    set_color(r, C_PANEL_BORDER);
+    set_color(r, kPanelBorderColor);
     SDL_RenderDrawLine(r, px + 10, ty, px + pw - 10, ty);
     ty += 20;
 
     /* Score */
     char buf[64];
-    draw_text_centered(r, g_view.font_hint, "分数", tx, ty, C_TEXT_HINT);
-    ty += 24;
+    draw_text_centered(r, g_view.font_hint, "分数", tx, ty, kTextHintColor);
+    ty += 30;
     snprintf(buf, sizeof(buf), "%u", board->score);
-    draw_text_centered(r, g_view.font_large, buf, tx, ty, C_TEXT_PRIMARY);
-    ty += 36;
+    draw_text_centered(r, g_view.font_large, buf, tx, ty, kTextPrimaryColor);
+    ty += 40;
 
     /* High score */
-    draw_text_centered(r, g_view.font_hint, "最高分", tx, ty, C_TEXT_HINT);
-    ty += 24;
+    draw_text_centered(r, g_view.font_hint, "最高分", tx, ty, kTextHintColor);
+    ty += 25;
     snprintf(buf, sizeof(buf), "%u", board->high_score);
-    draw_text_centered(r, g_view.font_medium, buf, tx, ty, C_ACCENT_BLUE);
+    draw_text_centered(r, g_view.font_medium, buf, tx, ty, kAccentBlueColor);
     ty += 32;
 
     /* Coins */
-    draw_text_centered(r, g_view.font_hint, "金币", tx, ty, C_TEXT_HINT);
-    ty += 24;
+    draw_text_centered(r, g_view.font_hint, "金币", tx, ty, kTextHintColor);
+    ty += 25;
     snprintf(buf, sizeof(buf), "%u", board->total_coins);
-    draw_text_centered(r, g_view.font_medium, buf, tx, ty, (SDL_Color){255, 215, 0, 255});
+    draw_text_centered(r, g_view.font_medium, buf, tx, ty, kMarkRingColor);
     ty += 32;
 
-    set_color(r, C_PANEL_BORDER);
+    set_color(r, kPanelBorderColor);
     SDL_RenderDrawLine(r, px + 10, ty, px + pw - 10, ty);
     ty += 20;
 
     /* Moves */
-    draw_text_centered(r, g_view.font_hint, "剩余步数", tx, ty, C_TEXT_HINT);
-    ty += 24;
+    draw_text_centered(r, g_view.font_hint, "剩余步数", tx, ty, kTextHintColor);
+    ty += 30;
     snprintf(buf, sizeof(buf), "%u", board->moves_remaining);
-    SDL_Color moves_c = C_TEXT_PRIMARY;
+    SDL_Color moves_c = kTextPrimaryColor;
     if (board->moves_remaining <= 5) {
-        if ((SDL_GetTicks64() / 250) % 2 == 0) moves_c = C_DANGER;
+        if ((SDL_GetTicks64() / 250) % 2 == 0) moves_c = kDangerColor;
         else moves_c = (SDL_Color){150, 0, 0, 255};
     }
     draw_text_centered(r, g_view.font_large, buf, tx, ty, moves_c);
@@ -895,25 +898,25 @@ static void draw_info_panel(const GameBoard *board)
     /* Difficulty */
     static const char *DIFF_NAMES[] = {"简单", "普通", "困难"};
     int d = (board->difficulty >= 0 && board->difficulty <= 2) ? board->difficulty : 1;
-    draw_text_centered(r, g_view.font_hint, "难度", tx, ty, C_TEXT_HINT);
-    ty += 24;
-    draw_text_centered(r, g_view.font_medium, DIFF_NAMES[d], tx, ty, C_ACCENT_GREEN);
+    draw_text_centered(r, g_view.font_hint, "难度", tx, ty, kTextHintColor);
+    ty += 25;
+    draw_text_centered(r, g_view.font_medium, DIFF_NAMES[d], tx, ty, kAccentGreenColor);
     ty += 32;
 
-    set_color(r, C_PANEL_BORDER);
+    set_color(r, kPanelBorderColor);
     SDL_RenderDrawLine(r, px + 10, ty, px + pw - 10, ty);
     ty += 20;
 
     /* Key hints at bottom */
-    draw_text_centered(r, g_view.font_hint, "S/L 存读  P/ESC 暂停", tx, ty, C_TEXT_HINT);
-    ty += 24;
-    draw_text_centered(r, g_view.font_hint, "U 撤销    R 重来", tx, ty, C_TEXT_HINT);
+    draw_text_centered(r, g_view.font_hint, "S/L 存读  P/ESC 暂停", tx, ty, kTextHintColor);
+    ty += 20;
+    draw_text_centered(r, g_view.font_hint, "U 撤销    R 重来", tx, ty, kTextHintColor);
     ty += 28;
 
     /* Combo (rendered further down or elsewhere if needed) */
     if (board->combo_multiplier > 1) {
         snprintf(buf, sizeof(buf), "连击 x%u!", board->combo_multiplier);
-        draw_text_centered(r, g_view.font_body, buf, tx, ty, C_ACCENT_BLUE);
+        draw_text_centered(r, g_view.font_body, buf, tx, ty, kAccentBlueColor);
     }
     
     /* Props Row Under the Board */
@@ -967,7 +970,7 @@ static void draw_info_panel(const GameBoard *board)
         
         if (props[i].count > 0) {
             snprintf(buf, sizeof(buf), "x%u", props[i].count);
-            draw_text_centered(r, g_view.font_hint, buf, dx + p_size/2, dy + p_size + 14, locked ? C_TEXT_HINT : C_TEXT_PRIMARY);
+            draw_text_centered(r, g_view.font_hint, buf, dx + p_size/2, dy + p_size + 14, locked ? kTextHintColor : kTextPrimaryColor);
         } else {
             snprintf(buf, sizeof(buf), "$%u", board->buy_prop_price);
             draw_text_centered(r, g_view.font_hint, buf, dx + p_size/2, dy + p_size + 14, (SDL_Color){255, 215, 0, 255});
@@ -1044,7 +1047,8 @@ void view_draw_game_ui_complete(const GameBoard *board)
     for (int row = 0; row < BOARD_HEIGHT; row++) {
         for (int col = 0; col < BOARD_WIDTH; col++) {
             const Gem *g = &board->board[row][col];
-            if (g->gem_type >= MAX_GEM_TYPES)
+            uint8_t t = g->gem_type;
+            if (t >= MAX_GEM_TYPES)
                 continue;
             bool sel = board->first_gem_selected &&
                        row == board->selected_row &&
@@ -1098,19 +1102,19 @@ static void draw_menu_button(int cx, int y, int w, int h,
 {
     SDL_Renderer *r = g_view.renderer;
 
-    SDL_Color fill   = selected ? C_ACCENT_BLUE : (locked ? (SDL_Color){20, 20, 20, 255} : C_PANEL);
-    SDL_Color border = selected ? C_ACCENT_BLUE : (locked ? (SDL_Color){40, 40, 40, 255} : C_PANEL_BORDER);
+    SDL_Color fill   = selected ? kAccentBlueColor : (locked ? (SDL_Color){20, 20, 20, 255} : kPanelColor);
+    SDL_Color border = selected ? kAccentBlueColor : (locked ? (SDL_Color){40, 40, 40, 255} : kPanelBorderColor);
     int       bw     = selected ? 2 : 1;
 
     fill_rounded_rect(r, cx - w / 2, y, w, h, BTN_CORNER_R, fill);
     draw_rounded_rect_outline(r, cx - w / 2, y, w, h, BTN_CORNER_R, border, bw);
 
     int label_y = sub_label ? y + h / 2 - 14 : y + h / 2;
-    SDL_Color text_col = locked ? (SDL_Color){100, 100, 100, 255} : C_TEXT_PRIMARY;
-    draw_text_centered(r, g_view.font_body, label, cx, label_y, text_col);
+    SDL_Color text_col = locked ? (SDL_Color){100, 100, 100, 255} : kTextPrimaryColor;
+    draw_text_centered(r, g_view.font_medium, label, cx, label_y, text_col);
 
     if (sub_label) {
-        SDL_Color sc = selected ? (SDL_Color){200, 220, 255, 255} : (locked ? (SDL_Color){80, 80, 80, 255} : C_TEXT_SECONDARY);
+        SDL_Color sc = selected ? (SDL_Color){200, 220, 255, 255} : (locked ? (SDL_Color){80, 80, 80, 255} : kTextSecondaryColor);
         draw_text_centered(r, g_view.font_hint, sub_label, cx, y + h / 2 + 10, sc);
     }
 }
@@ -1133,9 +1137,9 @@ void view_draw_main_menu(const GameBoard *board)
         SDL_Rect dst = {cx - (int)((float)w * scale) / 2, 40, (int)((float)w * scale), (int)((float)h * scale)};
         SDL_RenderCopy(r, g_view.tex_nuist_badge, NULL, &dst);
         
-        draw_text_centered(r, g_view.font_title,  "消消乐",              cx, 200,  C_TEXT_PRIMARY);
-        draw_text_centered(r, g_view.font_body,   "NUIST程序设计实践",
-                           cx, 260, C_TEXT_SECONDARY);
+        draw_text_centered(r, g_view.font_title,  "消消乐",              cx, 200,  kTextPrimaryColor);
+        draw_text_centered(r, g_view.font_medium, "按任意键或点击继续",
+                           cx, 260, kTextSecondaryColor);
 
         static const char *LABELS[] = {"开始游戏", "退出游戏"};
         for (int i = 0; i < 2; i++) {
@@ -1143,9 +1147,9 @@ void view_draw_main_menu(const GameBoard *board)
             draw_menu_button(cx, 330 + i * 80, 280, 60, LABELS[i], sel, NULL, false);
         }
     } else {
-        draw_text_centered(r, g_view.font_title,  "消消乐",              cx, 90,  C_TEXT_PRIMARY);
-        draw_text_centered(r, g_view.font_body,   "NUIST程序设计实践",
-                           cx, 160, C_TEXT_SECONDARY);
+        draw_text_centered(r, g_view.font_title,  "消消乐",              cx, 90,  kTextPrimaryColor);
+        draw_text_centered(r, g_view.font_medium, "经典三消游戏体验",
+                           cx, 160, kTextSecondaryColor);
 
         static const char *LABELS[] = {"开始游戏", "退出游戏"};
         for (int i = 0; i < 2; i++) {
@@ -1156,7 +1160,7 @@ void view_draw_main_menu(const GameBoard *board)
 
     draw_text_centered(r, g_view.font_hint,
                        "方向键选择  |  Enter确认  |  ESC退出",
-                       cx, WINDOW_HEIGHT - 30, C_TEXT_HINT);
+                       cx, WINDOW_HEIGHT - 30, kTextHintColor);
 }
 
 void view_draw_difficulty_menu(const GameBoard *board)
@@ -1164,9 +1168,9 @@ void view_draw_difficulty_menu(const GameBoard *board)
     SDL_Renderer *r = g_view.renderer;
     int cx = WINDOW_WIDTH / 2;
 
-    draw_text_centered(r, g_view.font_large, "选择难度", cx, 90,  C_TEXT_PRIMARY);
-    draw_text_centered(r, g_view.font_body,  "选择你的挑战等级",
-                       cx, 140, C_TEXT_SECONDARY);
+    draw_text_centered(r, g_view.font_large, "选择难度", cx, 90,  kTextPrimaryColor);
+    draw_text_centered(r, g_view.font_medium, "不同的挑战与奖励",
+                       cx, 140, kTextSecondaryColor);
 
     static const char *NAMES[] = {"简单",   "普通", "困难"};
     static const char *MOVES[] = {"50 步","30 步","15 步"};
@@ -1178,7 +1182,7 @@ void view_draw_difficulty_menu(const GameBoard *board)
 
     draw_text_centered(r, g_view.font_hint,
                        "方向键选择  |  Enter确认  |  ESC返回",
-                       cx, WINDOW_HEIGHT - 30, C_TEXT_HINT);
+                       cx, WINDOW_HEIGHT - 30, kTextHintColor);
 }
 
 void view_draw_pause_menu(const GameBoard *board)
@@ -1192,7 +1196,7 @@ void view_draw_pause_menu(const GameBoard *board)
     SDL_RenderFillRect(r, &overlay);
 
     int cx = WINDOW_WIDTH / 2;
-    draw_text_centered(r, g_view.font_title, "游戏暂停", cx, 120, C_TEXT_PRIMARY);
+    draw_text_centered(r, g_view.font_title, "游戏暂停", cx, 120, kTextPrimaryColor);
 
     static const char *OPTS[] = {"继续游戏", "重新开始", "返回主菜单"};
     for (int i = 0; i < 3; i++) {
@@ -1207,10 +1211,10 @@ void view_draw_game_over_screen(const GameBoard *board)
     int cx = WINDOW_WIDTH / 2;
 
     const char *title_text = "游戏结束";
-    SDL_Color title_color = C_DANGER;
-    if (board->stars_earned > 0) {
-        title_text = "关卡完成!";
-        title_color = C_ACCENT_GREEN;
+    SDL_Color title_color = kDangerColor;
+    if (board->moves_remaining > 0 || model_is_deadlock(board) == false) {
+        /* Not a game over by fail, maybe reached target? */
+        title_color = kAccentGreenColor;
     }
 
     draw_text_centered(r, g_view.font_title, title_text, cx, 80, title_color);
@@ -1223,15 +1227,15 @@ void view_draw_game_over_screen(const GameBoard *board)
 
     // Score
     snprintf(buf, sizeof(buf), "最终得分: %u", board->score);
-    draw_text_centered(r, g_view.font_medium, buf, cx, 190, C_TEXT_PRIMARY);
+    draw_text_centered(r, g_view.font_medium, buf, cx, 190, kTextPrimaryColor);
 
     // Max Combo
     snprintf(buf, sizeof(buf), "最高连击: x%u", board->max_combo_this_game);
-    draw_text_centered(r, g_view.font_body, buf, cx, 230, C_TEXT_SECONDARY);
+    draw_text_centered(r, g_view.font_body, buf, cx, 230, kTextSecondaryColor);
 
     // Props
     snprintf(buf, sizeof(buf), "使用道具: %u", board->used_props_total);
-    draw_text_centered(r, g_view.font_body, buf, cx, 260, C_TEXT_SECONDARY);
+    draw_text_centered(r, g_view.font_body, buf, cx, 260, kTextSecondaryColor);
 
     static const char *OPTS[] = {"再来一局", "返回主菜单"};
     for (int i = 0; i < 2; i++) {
@@ -1240,8 +1244,8 @@ void view_draw_game_over_screen(const GameBoard *board)
     }
 
     draw_text_centered(r, g_view.font_hint,
-                       "方向键选择  |  Enter确认",
-                       cx, WINDOW_HEIGHT - 30, C_TEXT_HINT);
+                       "方向键选择，回车确认",
+                       cx, WINDOW_HEIGHT - 30, kTextHintColor);
 }
 
 /* ================================================================
@@ -1256,7 +1260,7 @@ bool view_render_frame(const GameBoard *board)
     SDL_Renderer *r = g_view.renderer;
 
     /* Fill background */
-    SDL_SetRenderDrawColor(r, C_BG.r, C_BG.g, C_BG.b, C_BG.a);
+    SDL_SetRenderDrawColor(r, kBgColor.r, kBgColor.g, kBgColor.b, kBgColor.a);
     SDL_RenderClear(r);
     
     /* Draw background image based on game state */
