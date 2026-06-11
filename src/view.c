@@ -755,7 +755,10 @@ static void draw_gem(const Gem *g, bool is_selected)
     int cr   = (int)(GEM_CORNER_R * scale);
     if (cr < 1) cr = 1;
 
-    if (g_view.tex_gem[g->gem_type]) {
+    if (g->is_stone) {
+        fill_rounded_rect(r, x, y, w, h, cr, (SDL_Color){128, 128, 128, 255});
+        draw_rounded_rect_outline(r, x, y, w, h, cr, (SDL_Color){100, 100, 100, 255}, 2);
+    } else if (g_view.tex_gem[g->gem_type]) {
         SDL_Rect dst = {x, y, w, h};
         SDL_RenderCopy(r, g_view.tex_gem[g->gem_type], NULL, &dst);
     } else {
@@ -769,6 +772,12 @@ static void draw_gem(const Gem *g, bool is_selected)
             int hh = h / 6;
             fill_circle(r, cx, y + hh + 2, hw > 2 ? hw : 2, hi);
         }
+    }
+
+    /* Ice Overlay */
+    if (g->has_ice) {
+        fill_rounded_rect(r, x, y, w, h, cr, (SDL_Color){173, 216, 230, 128});
+        draw_rounded_rect_outline(r, x, y, w, h, cr, (SDL_Color){255, 255, 255, 180}, 1);
     }
 
     /* Bomb indicator */
@@ -875,7 +884,11 @@ static void draw_info_panel(const GameBoard *board)
     draw_text_centered(r, g_view.font_hint, "剩余步数", tx, ty, C_TEXT_HINT);
     ty += 24;
     snprintf(buf, sizeof(buf), "%u", board->moves_remaining);
-    SDL_Color moves_c = (board->moves_remaining <= 5) ? C_DANGER : C_TEXT_PRIMARY;
+    SDL_Color moves_c = C_TEXT_PRIMARY;
+    if (board->moves_remaining <= 5) {
+        if ((SDL_GetTicks64() / 250) % 2 == 0) moves_c = C_DANGER;
+        else moves_c = (SDL_Color){150, 0, 0, 255};
+    }
     draw_text_centered(r, g_view.font_large, buf, tx, ty, moves_c);
     ty += 36;
 
@@ -930,6 +943,14 @@ static void draw_info_panel(const GameBoard *board)
             hovered_prop_idx = i;
         }
         
+        bool locked = false;
+        if (board->used_props_total >= board->max_props_per_game) locked = true;
+        if (i == 3 && board->used_sandglass_count >= board->max_sandglass_per_game) locked = true;
+        if (board->difficulty == 2) {
+            if (i == 2 && board->used_sandglass_count > 0) locked = true;
+            if (i == 3 && (board->level & 2)) locked = true;
+        }
+
         if (board->current_state == props[i].state || 
            (i == 1 && board->current_state == GAME_STATE_PROP_WAND_SECOND_SEL)) {
             SDL_SetRenderDrawColor(r, 255, 215, 0, 255);
@@ -937,13 +958,20 @@ static void draw_info_panel(const GameBoard *board)
             SDL_RenderFillRect(r, &hr);
         }
         
-        fill_rounded_rect(r, dx, dy, p_size, p_size, 8, (SDL_Color){60, 50, 80, 255});
+        fill_rounded_rect(r, dx, dy, p_size, p_size, 8, locked ? (SDL_Color){30, 30, 30, 255} : (SDL_Color){60, 50, 80, 255});
         if (props[i].tex) {
+            if (locked) SDL_SetTextureColorMod(props[i].tex, 100, 100, 100);
             SDL_RenderCopy(r, props[i].tex, NULL, &pr);
+            if (locked) SDL_SetTextureColorMod(props[i].tex, 255, 255, 255);
         }
         
-        snprintf(buf, sizeof(buf), "x%u", props[i].count);
-        draw_text_centered(r, g_view.font_hint, buf, dx + p_size/2, dy + p_size + 14, C_TEXT_PRIMARY);
+        if (props[i].count > 0) {
+            snprintf(buf, sizeof(buf), "x%u", props[i].count);
+            draw_text_centered(r, g_view.font_hint, buf, dx + p_size/2, dy + p_size + 14, locked ? C_TEXT_HINT : C_TEXT_PRIMARY);
+        } else {
+            snprintf(buf, sizeof(buf), "$%u", board->buy_prop_price);
+            draw_text_centered(r, g_view.font_hint, buf, dx + p_size/2, dy + p_size + 14, (SDL_Color){255, 215, 0, 255});
+        }
     }
 
     if (hovered_prop_idx != -1) {
@@ -1066,22 +1094,23 @@ void view_draw_game_ui_complete(const GameBoard *board)
 
 static void draw_menu_button(int cx, int y, int w, int h,
                               const char *label, bool selected,
-                              const char *sub_label)
+                              const char *sub_label, bool locked)
 {
     SDL_Renderer *r = g_view.renderer;
 
-    SDL_Color fill   = selected ? C_ACCENT_BLUE : C_PANEL;
-    SDL_Color border = selected ? C_ACCENT_BLUE : C_PANEL_BORDER;
+    SDL_Color fill   = selected ? C_ACCENT_BLUE : (locked ? (SDL_Color){20, 20, 20, 255} : C_PANEL);
+    SDL_Color border = selected ? C_ACCENT_BLUE : (locked ? (SDL_Color){40, 40, 40, 255} : C_PANEL_BORDER);
     int       bw     = selected ? 2 : 1;
 
     fill_rounded_rect(r, cx - w / 2, y, w, h, BTN_CORNER_R, fill);
     draw_rounded_rect_outline(r, cx - w / 2, y, w, h, BTN_CORNER_R, border, bw);
 
     int label_y = sub_label ? y + h / 2 - 14 : y + h / 2;
-    draw_text_centered(r, g_view.font_body, label, cx, label_y, C_TEXT_PRIMARY);
+    SDL_Color text_col = locked ? (SDL_Color){100, 100, 100, 255} : C_TEXT_PRIMARY;
+    draw_text_centered(r, g_view.font_body, label, cx, label_y, text_col);
 
     if (sub_label) {
-        SDL_Color sc = selected ? (SDL_Color){200, 220, 255, 255} : C_TEXT_SECONDARY;
+        SDL_Color sc = selected ? (SDL_Color){200, 220, 255, 255} : (locked ? (SDL_Color){80, 80, 80, 255} : C_TEXT_SECONDARY);
         draw_text_centered(r, g_view.font_hint, sub_label, cx, y + h / 2 + 10, sc);
     }
 }
@@ -1111,7 +1140,7 @@ void view_draw_main_menu(const GameBoard *board)
         static const char *LABELS[] = {"开始游戏", "退出游戏"};
         for (int i = 0; i < 2; i++) {
             bool sel = (i == board->highlighted_menu_option);
-            draw_menu_button(cx, 330 + i * 80, 280, 60, LABELS[i], sel, NULL);
+            draw_menu_button(cx, 330 + i * 80, 280, 60, LABELS[i], sel, NULL, false);
         }
     } else {
         draw_text_centered(r, g_view.font_title,  "消消乐",              cx, 90,  C_TEXT_PRIMARY);
@@ -1121,7 +1150,7 @@ void view_draw_main_menu(const GameBoard *board)
         static const char *LABELS[] = {"开始游戏", "退出游戏"};
         for (int i = 0; i < 2; i++) {
             bool sel = (i == board->highlighted_menu_option);
-            draw_menu_button(cx, 250 + i * 90, 280, 64, LABELS[i], sel, NULL);
+            draw_menu_button(cx, 250 + i * 90, 280, 64, LABELS[i], sel, NULL, false);
         }
     }
 
@@ -1143,7 +1172,8 @@ void view_draw_difficulty_menu(const GameBoard *board)
     static const char *MOVES[] = {"50 步","30 步","15 步"};
     for (int i = 0; i < 3; i++) {
         bool sel = (i == board->highlighted_difficulty);
-        draw_menu_button(cx, 220 + i * 100, 300, 74, NAMES[i], sel, MOVES[i]);
+        bool locked = (i > board->unlocked_difficulty);
+        draw_menu_button(cx, 220 + i * 100, 300, 74, NAMES[i], sel, locked ? "未解锁" : MOVES[i], locked);
     }
 
     draw_text_centered(r, g_view.font_hint,
@@ -1167,7 +1197,7 @@ void view_draw_pause_menu(const GameBoard *board)
     static const char *OPTS[] = {"继续游戏", "重新开始", "返回主菜单"};
     for (int i = 0; i < 3; i++) {
         bool sel = (i == board->highlighted_menu_option);
-        draw_menu_button(cx, 220 + i * 90, 280, 64, OPTS[i], sel, NULL);
+        draw_menu_button(cx, 220 + i * 90, 280, 64, OPTS[i], sel, NULL, false);
     }
 }
 
@@ -1176,20 +1206,37 @@ void view_draw_game_over_screen(const GameBoard *board)
     SDL_Renderer *r = g_view.renderer;
     int cx = WINDOW_WIDTH / 2;
 
-    draw_text_centered(r, g_view.font_title,  "游戏结束", cx, 80,  C_DANGER);
-    draw_text_centered(r, g_view.font_body,   "最终得分:", cx, 148, C_TEXT_SECONDARY);
+    const char *title_text = "游戏结束";
+    SDL_Color title_color = C_DANGER;
+    if (board->stars_earned > 0) {
+        title_text = "关卡完成!";
+        title_color = C_ACCENT_GREEN;
+    }
 
+    draw_text_centered(r, g_view.font_title, title_text, cx, 80, title_color);
+    
     char buf[64];
-    snprintf(buf, sizeof(buf), "%u", board->score);
-    draw_text_centered(r, g_view.font_large, buf, cx, 200, C_TEXT_PRIMARY);
+    
+    // Stars
+    snprintf(buf, sizeof(buf), "星级: %u / 3", board->stars_earned);
+    draw_text_centered(r, g_view.font_large, buf, cx, 140, (SDL_Color){255, 215, 0, 255});
 
-    snprintf(buf, sizeof(buf), "最高分: %u", board->high_score);
-    draw_text_centered(r, g_view.font_body, buf, cx, 248, C_ACCENT_BLUE);
+    // Score
+    snprintf(buf, sizeof(buf), "最终得分: %u", board->score);
+    draw_text_centered(r, g_view.font_medium, buf, cx, 190, C_TEXT_PRIMARY);
+
+    // Max Combo
+    snprintf(buf, sizeof(buf), "最高连击: x%u", board->max_combo_this_game);
+    draw_text_centered(r, g_view.font_body, buf, cx, 230, C_TEXT_SECONDARY);
+
+    // Props
+    snprintf(buf, sizeof(buf), "使用道具: %u", board->used_props_total);
+    draw_text_centered(r, g_view.font_body, buf, cx, 260, C_TEXT_SECONDARY);
 
     static const char *OPTS[] = {"再来一局", "返回主菜单"};
     for (int i = 0; i < 2; i++) {
         bool sel = (i == board->highlighted_menu_option);
-        draw_menu_button(cx, 310 + i * 90, 280, 64, OPTS[i], sel, NULL);
+        draw_menu_button(cx, 330 + i * 80, 280, 64, OPTS[i], sel, NULL, false);
     }
 
     draw_text_centered(r, g_view.font_hint,

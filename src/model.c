@@ -80,7 +80,7 @@ static bool has_initial_match(const GameBoard *board)
  *  Gem generation
  * ================================================================ */
 
-Gem model_generate_gem(uint8_t row, uint8_t col, bool offscreen_spawn)
+Gem model_generate_gem(GameBoard *board, uint8_t row, uint8_t col, bool offscreen_spawn)
 {
     Gem gem;
     memset(&gem, 0, sizeof(Gem));
@@ -88,14 +88,16 @@ Gem model_generate_gem(uint8_t row, uint8_t col, bool offscreen_spawn)
     gem.row       = row;
     gem.col       = col;
     
-    /* 5% chance for a wildcard, otherwise uniform across 0-4 (5 regular colors) */
-    if ((rand() % 100) < 5) {
+    float wild_prob = board ? board->wildcard_prob : 0.05f;
+    if ((rand() % 100) < (int)(wild_prob * 100.0f)) {
         gem.gem_type = GEM_WILDCARD;
     } else {
         gem.gem_type = (uint8_t)(rand() % 5); /* 0 to 4 */
     }
     
     gem.bomb_type = BOMB_NONE;
+    gem.is_stone = false;
+    gem.has_ice = false;
     gem.is_marked_for_elimination = false;
     gem.animation_progress        = 0.0f;
     gem.elim_scale                = 1.0f;
@@ -138,7 +140,7 @@ bool model_init_board(GameBoard *board)
         for (int r = 0; r < BOARD_HEIGHT; r++)
             for (int c = 0; c < BOARD_WIDTH; c++)
                 board->board[r][c] =
-                    model_generate_gem((uint8_t)r, (uint8_t)c, false);
+                    model_generate_gem(board, (uint8_t)r, (uint8_t)c, false);
     } while (has_initial_match(board) || model_is_deadlock(board));
 
     return true;
@@ -148,6 +150,61 @@ void model_destroy_board(GameBoard *board)
 {
     if (board)
         memset(board, 0, sizeof(GameBoard));
+}
+
+static uint32_t simulate_swap(GameBoard *board, int r1, int c1, int r2, int c2);
+
+static int count_valid_moves(GameBoard *board) {
+    int count = 0;
+    for (int r = 0; r < BOARD_HEIGHT; r++) {
+        for (int c = 0; c < BOARD_WIDTH; c++) {
+            if (c + 1 < BOARD_WIDTH && simulate_swap(board, r, c, r, c + 1) > 0) count++;
+            if (r + 1 < BOARD_HEIGHT && simulate_swap(board, r, c, r + 1, c) > 0) count++;
+        }
+    }
+    return count;
+}
+
+static void apply_difficulty_configs(GameBoard *board) {
+    if (board->difficulty == 0) {
+        board->target_score = 3000;
+        board->max_props_per_game = 99;
+        board->max_sandglass_per_game = 99;
+        board->hint_trigger_time = 3.0f;
+        board->wildcard_prob = 0.08f;
+        board->buy_prop_price = 100;
+        board->moves_remaining = EASY_MOVES;
+    } else if (board->difficulty == 1) {
+        board->target_score = 5000;
+        board->max_props_per_game = 5;
+        board->max_sandglass_per_game = 2;
+        board->hint_trigger_time = 5.0f;
+        board->wildcard_prob = 0.05f;
+        board->buy_prop_price = 200;
+        board->moves_remaining = NORMAL_MOVES + (board->consecutive_fails_normal >= 2 ? 2 : 0);
+    } else {
+        board->target_score = 8000;
+        board->max_props_per_game = 3;
+        board->max_sandglass_per_game = 1;
+        board->hint_trigger_time = 999999.0f; // effectively no hints
+        board->wildcard_prob = 0.02f;
+        board->buy_prop_price = 400;
+        board->moves_remaining = HARD_MOVES + (board->consecutive_fails_hard >= 2 ? 1 : 0);
+    }
+}
+
+static void place_stones_ice(GameBoard *board) {
+    if (board->difficulty == 1) {
+        int coords[10][2] = {{1,1},{1,6},{6,1},{6,6}, {3,3},{3,4},{4,3},{4,4}, {2,2},{5,5}};
+        for (int i=0; i<10; i++) board->board[coords[i][0]][coords[i][1]].is_stone = true;
+    } else if (board->difficulty == 2) {
+        int s_coords[16][2] = {{0,0},{0,7},{7,0},{7,7}, {1,1},{1,6},{6,1},{6,6}, 
+                               {3,1},{4,1},{3,6},{4,6}, {1,3},{1,4},{6,3},{6,4}};
+        for (int i=0; i<16; i++) board->board[s_coords[i][0]][s_coords[i][1]].is_stone = true;
+        
+        int i_coords[10][2] = {{3,3},{3,4},{4,3},{4,4}, {2,3},{2,4},{5,3},{5,4}, {3,2},{4,2}};
+        for (int i=0; i<10; i++) board->board[i_coords[i][0]][i_coords[i][1]].has_ice = true;
+    }
 }
 
 bool model_init_board_with_difficulty(GameBoard *board, int difficulty)
@@ -166,24 +223,32 @@ bool model_init_board_with_difficulty(GameBoard *board, int difficulty)
 
     board->level              = 1;
     board->difficulty         = difficulty;
+    apply_difficulty_configs(board);
+    
     board->first_gem_selected = false;
     board->highlighted_difficulty = difficulty;
     board->combo_multiplier   = 1;
     board->animations_settled = false; /* triggers the fall-in animation */
+    board->used_props_total   = 0;
+    board->used_sandglass_count = 0;
+    board->max_combo_this_game = 0;
 
-    switch (difficulty) {
-        case 0:  board->moves_remaining = EASY_MOVES;   break;
-        case 2:  board->moves_remaining = HARD_MOVES;   break;
-        default: board->moves_remaining = NORMAL_MOVES; break;
-    }
-
-    /* Generate a match-free, non-deadlock initial board */
+    /* Generate a match-free, non-deadlock initial board with difficulty constraints */
     do {
         for (int r = 0; r < BOARD_HEIGHT; r++)
             for (int c = 0; c < BOARD_WIDTH; c++)
                 board->board[r][c] =
-                    model_generate_gem((uint8_t)r, (uint8_t)c, false);
-    } while (has_initial_match(board) || model_is_deadlock(board));
+                    model_generate_gem(board, (uint8_t)r, (uint8_t)c, false);
+                    
+        if (has_initial_match(board) || model_is_deadlock(board)) continue;
+        
+        int valid_moves = count_valid_moves(board);
+        if (difficulty == 0 && valid_moves >= 6) break;
+        else if (difficulty == 1 && valid_moves >= 3) break;
+        else if (difficulty == 2) break;
+    } while (true);
+
+    place_stones_ice(board);
 
     /* Push all gems above the viewport for a cascade drop-in animation */
     for (int r = 0; r < BOARD_HEIGHT; r++) {
@@ -219,9 +284,11 @@ uint32_t model_check_eliminations(GameBoard *board, EliminationSet *out_set)
     /* Horizontal scan */
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c < BOARD_WIDTH - 2; ) {
+            if (board->board[r][c].is_stone) { c++; continue; }
             uint8_t color = GEM_EMPTY;
             int end = c;
             while (end < BOARD_WIDTH) {
+                if (board->board[r][end].is_stone) break;
                 uint8_t t = board->board[r][end].gem_type;
                 if (t >= MAX_GEM_TYPES && t != GEM_WILDCARD) break;
                 if (t != GEM_WILDCARD) {
@@ -251,9 +318,11 @@ uint32_t model_check_eliminations(GameBoard *board, EliminationSet *out_set)
     /* Vertical scan */
     for (int c = 0; c < BOARD_WIDTH; c++) {
         for (int r = 0; r < BOARD_HEIGHT - 2; ) {
+            if (board->board[r][c].is_stone) { r++; continue; }
             uint8_t color = GEM_EMPTY;
             int end = r;
             while (end < BOARD_HEIGHT) {
+                if (board->board[end][c].is_stone) break;
                 uint8_t t = board->board[end][c].gem_type;
                 if (t >= MAX_GEM_TYPES && t != GEM_WILDCARD) break;
                 if (t != GEM_WILDCARD) {
@@ -301,8 +370,13 @@ uint32_t model_check_eliminations(GameBoard *board, EliminationSet *out_set)
 
 uint32_t model_check_eliminations_advanced(GameBoard *board, EliminationSet *out_set)
 {
-    uint32_t base = model_check_eliminations(board, out_set);
-    return base * (board ? board->combo_multiplier : 1u);
+    uint32_t pts = model_check_eliminations(board, out_set);
+    if (board && board->difficulty == 0 && board->combo_multiplier >= 2) {
+        pts *= (board->combo_multiplier * 2);
+    } else if (board) {
+        pts *= board->combo_multiplier;
+    }
+    return pts;
 }
 
 /* ================================================================
@@ -317,10 +391,17 @@ void model_apply_eliminations(GameBoard *board)
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c < BOARD_WIDTH; c++) {
             if (board->board[r][c].is_marked_for_elimination) {
+                board->board[r][c].is_marked_for_elimination = false;
+                
+                if (board->board[r][c].has_ice) {
+                    board->board[r][c].has_ice = false;
+                    board->board[r][c].next_bomb_type = BOMB_NONE;
+                    continue; /* Protect the gem itself */
+                }
+                
                 int next_bomb = board->board[r][c].next_bomb_type;
                 if (next_bomb != BOMB_NONE) {
                     /* Transform into bomb instead of clearing */
-                    board->board[r][c].is_marked_for_elimination = false;
                     board->board[r][c].bomb_type = next_bomb;
                     board->board[r][c].next_bomb_type = BOMB_NONE;
                     board->board[r][c].elim_scale = 1.0f;
@@ -351,6 +432,10 @@ bool model_apply_gravity(GameBoard *board)
         int write_row = BOARD_HEIGHT - 1;
 
         for (int r = BOARD_HEIGHT - 1; r >= 0; r--) {
+            if (board->board[r][c].is_stone) {
+                write_row = r - 1;
+                continue;
+            }
             if (board->board[r][c].gem_type != (uint8_t)GEM_EMPTY) {
                 if (write_row != r) {
                     /* Move gem down; screen_x/y retain old value for Lerp */
@@ -388,12 +473,30 @@ void model_refill_board(GameBoard *board)
     for (int c = 0; c < BOARD_WIDTH; c++) {
         int spawn_offset = 1;
         for (int r = 0; r < BOARD_HEIGHT; r++) {
-            if (board->board[r][c].gem_type == (uint8_t)GEM_EMPTY) {
-                board->board[r][c]          = model_generate_gem((uint8_t)r, (uint8_t)c, false);
+            if (board->board[r][c].gem_type == (uint8_t)GEM_EMPTY && !board->board[r][c].is_stone) {
+                board->board[r][c]          = model_generate_gem(board, (uint8_t)r, (uint8_t)c, false);
                 board->board[r][c].screen_x = gem_target_x((uint8_t)c);
                 board->board[r][c].screen_y = (float)(BOARD_OFFSET_Y - spawn_offset * GEM_SIZE);
                 board->board[r][c].elim_scale = 1.0f;
                 spawn_offset++;
+            }
+        }
+    }
+    
+    if (model_is_deadlock(board)) {
+        int chance = (board->difficulty == 0) ? 100 : (board->difficulty == 1 ? 80 : 60);
+        if ((rand() % 100) < chance) {
+            /* Force an immediate match to rescue from deadlock */
+            for (int r = 0; r < BOARD_HEIGHT; r++) {
+                for (int c = 0; c < BOARD_WIDTH - 2; c++) {
+                    if (!board->board[r][c].is_stone && !board->board[r][c+1].is_stone && !board->board[r][c+2].is_stone) {
+                        uint8_t t = (uint8_t)(rand() % 5);
+                        board->board[r][c].gem_type = t;
+                        board->board[r][c+1].gem_type = t;
+                        board->board[r][c+2].gem_type = t;
+                        return;
+                    }
+                }
             }
         }
     }
@@ -661,7 +764,7 @@ bool model_undo_move(GameBoard *board)
 
 /* ---- Save-file format header ---- */
 #define SAVE_MAGIC   0x4D335356u  /* 'M3SV' */
-#define SAVE_VERSION 2u
+#define SAVE_VERSION 3u
 
 typedef struct {
     uint32_t magic;   /* Must equal SAVE_MAGIC   */
@@ -756,11 +859,14 @@ bool model_find_best_hint(GameBoard *board,
 
 bool model_prop_hammer_smash(GameBoard *board, uint8_t row, uint8_t col) {
     if (!board || row >= BOARD_HEIGHT || col >= BOARD_WIDTH) return false;
-    if (board->board[row][col].gem_type == GEM_EMPTY) return false;
+    if (board->board[row][col].gem_type == GEM_EMPTY && !board->board[row][col].is_stone) return false;
     if (board->prop_hammer_count == 0) return false;
 
+    board->board[row][col].has_ice = false;
+    board->board[row][col].is_stone = false;
     board->board[row][col].gem_type = GEM_EMPTY;
     board->board[row][col].is_marked_for_elimination = true;
+    
     board->prop_hammer_count--;
     board->undo_available = false; /* Clear undo after using board-altering prop */
     return true;
@@ -796,12 +902,12 @@ bool model_prop_wand_swap(GameBoard *board, uint8_t r1, uint8_t c1, uint8_t r2, 
 bool model_prop_shuffle(GameBoard *board) {
     if (!board || board->prop_shuffle_count == 0) return false;
 
-    /* Collect all non-empty gems */
+    /* Collect all non-empty gems that are not stones or ice */
     Gem* gems[BOARD_WIDTH * BOARD_HEIGHT];
     int count = 0;
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c < BOARD_WIDTH; c++) {
-            if (board->board[r][c].gem_type != GEM_EMPTY) {
+            if (board->board[r][c].gem_type != GEM_EMPTY && !board->board[r][c].is_stone && !board->board[r][c].has_ice) {
                 gems[count++] = &board->board[r][c];
             }
         }

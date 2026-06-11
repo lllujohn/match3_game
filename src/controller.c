@@ -99,10 +99,14 @@ static void handle_key_difficulty(GameBoard *board, SDL_Keycode key)
             break;
         case SDLK_RETURN:
         case SDLK_KP_ENTER:
-            model_init_board_with_difficulty(board, board->highlighted_difficulty);
-            g_ctrl.difficulty = board->highlighted_difficulty;
-            view_set_bgm(1);
-            view_play_sound_effect("start");
+            if (board->highlighted_difficulty > board->unlocked_difficulty) {
+                view_play_sound_effect("error");
+            } else {
+                model_init_board_with_difficulty(board, board->highlighted_difficulty);
+                g_ctrl.difficulty = board->highlighted_difficulty;
+                view_set_bgm(1);
+                view_play_sound_effect("start");
+            }
             break;
         case SDLK_ESCAPE:
             board->current_state           = GAME_STATE_MAIN_MENU;
@@ -256,10 +260,14 @@ static void handle_mouse_difficulty(GameBoard *board, int mx, int my)
 
     for (int i = 0; i < 3; i++) {
         if (point_in_button(mx, my, cx, btn_y + i * 100, 300, 74)) {
-            model_init_board_with_difficulty(board, i);
-            g_ctrl.difficulty = i;
-            view_set_bgm(1);
-            view_play_sound_effect("start");
+            if (i > board->unlocked_difficulty) {
+                view_play_sound_effect("error");
+            } else {
+                model_init_board_with_difficulty(board, i);
+                g_ctrl.difficulty = i;
+                view_set_bgm(1);
+                view_play_sound_effect("start");
+            }
         }
     }
 }
@@ -356,15 +364,55 @@ static void handle_mouse_in_game(GameBoard *board, int mx, int my)
                 /* Execute instant props if they were already in confirm state */
                 if (i == 2 && board->current_state == GAME_STATE_PROP_SHUFFLE_CONFIRM) {
                     board->current_state = GAME_STATE_WAITING_INPUT;
-                    if (model_prop_shuffle(board)) view_play_sound_effect("clear");
+                    if (model_prop_shuffle(board)) {
+                        board->used_props_total++;
+                        board->level |= 2; /* level flag 2 = used shuffle */
+                        view_play_sound_effect("clear");
+                    }
                     return;
                 }
                 if (i == 3 && board->current_state == GAME_STATE_PROP_MOVES_CONFIRM) {
                     board->current_state = GAME_STATE_WAITING_INPUT;
-                    if (model_prop_add_moves(board)) view_play_sound_effect("start");
+                    if (model_prop_add_moves(board)) {
+                        board->used_props_total++;
+                        board->used_sandglass_count++;
+                        view_play_sound_effect("start");
+                    }
                     return;
                 }
                 
+                /* Auto-buy if 0 count and enough coins */
+                if ((i == 0 && board->prop_hammer_count == 0) ||
+                    (i == 1 && board->prop_wand_count == 0) ||
+                    (i == 2 && board->prop_shuffle_count == 0) ||
+                    (i == 3 && board->prop_moves_count == 0)) {
+                    if (board->buy_prop_price > 0 && board->total_coins >= board->buy_prop_price) {
+                        board->total_coins -= board->buy_prop_price;
+                        if (i == 0) board->prop_hammer_count++;
+                        if (i == 1) board->prop_wand_count++;
+                        if (i == 2) board->prop_shuffle_count++;
+                        if (i == 3) board->prop_moves_count++;
+                        view_play_sound_effect("match");
+                    } else {
+                        view_play_sound_effect("error");
+                        return;
+                    }
+                }
+                
+                /* Check usage limits */
+                if (board->used_props_total >= board->max_props_per_game) {
+                    view_play_sound_effect("error");
+                    return;
+                }
+                if (i == 3 && board->used_sandglass_count >= board->max_sandglass_per_game) {
+                    view_play_sound_effect("error");
+                    return;
+                }
+                if (board->difficulty == 2) {
+                    if (i == 2 && board->used_sandglass_count > 0) { view_play_sound_effect("error"); return; }
+                    if (i == 3 && (board->level & 2)) { view_play_sound_effect("error"); return; }
+                }
+
                 /* Otherwise select or use the prop */
                 if (i == 0 && board->prop_hammer_count > 0) {
                     board->current_state = GAME_STATE_PROP_HAMMER_WAITING;
@@ -403,6 +451,7 @@ static void handle_mouse_in_game(GameBoard *board, int mx, int my)
 
     if (board->current_state == GAME_STATE_PROP_HAMMER_WAITING) {
         if (model_prop_hammer_smash(board, row, col)) {
+            board->used_props_total++;
             board->current_state = GAME_STATE_ELIMINATING;
             board->state_timer = 0.0f;
             board->animation_duration = 0.35f;
@@ -428,6 +477,7 @@ static void handle_mouse_in_game(GameBoard *board, int mx, int my)
         }
         if (model_is_adjacent(board, row, col)) {
             if (model_prop_wand_swap(board, board->selected_row, board->selected_col, row, col)) {
+                board->used_props_total++;
                 board->undo_available = false;
                 board->first_gem_selected = false;
                 board->current_state = GAME_STATE_SWAP_ANIMATING;
@@ -606,7 +656,7 @@ bool controller_update_state_machine(GameBoard *board, float dt)
         case GAME_STATE_FIRST_GEM_SELECT:
             /* No timer-based transitions in these states. */
             board->idle_timer += dt;
-            if (board->idle_timer > 5.0f && !board->has_hint) {
+            if (board->idle_timer > board->hint_trigger_time && !board->has_hint) {
                 if (model_find_best_hint(board, &board->hint_r, &board->hint_c, &board->hint_dir)) {
                     board->has_hint = true;
                 } else {
@@ -667,16 +717,38 @@ bool controller_update_state_machine(GameBoard *board, float dt)
                     view_play_sound_effect("match");
                 }
             } else {
-                /* No match — deduct move, check end-of-game */
+                /* No match — record max combo, deduct move, check end-of-game */
+                if (board->combo_multiplier > 1 && board->combo_multiplier - 1 > board->max_combo_this_game) {
+                    board->max_combo_this_game = board->combo_multiplier - 1;
+                }
+                
                 if (board->moves_remaining > 0)
                     board->moves_remaining--;
 
                 if (board->moves_remaining == 0 || model_is_deadlock(board)) {
                     board->current_state = GAME_STATE_GAME_OVER;
 
+                    /* Settlement: compute stars */
+                    if (board->score >= board->target_score * 2 && board->used_props_total == 0) board->stars_earned = 3;
+                    else if (board->score >= board->target_score + board->target_score / 2) board->stars_earned = 2;
+                    else if (board->score >= board->target_score) board->stars_earned = 1;
+                    else board->stars_earned = 0;
+
+                    /* Meta-progression: unlocks and fails */
+                    if (board->stars_earned > 0) {
+                        if (board->difficulty == 1) board->consecutive_fails_normal = 0;
+                        if (board->difficulty == 2) board->consecutive_fails_hard = 0;
+                        if (board->difficulty == board->unlocked_difficulty && board->unlocked_difficulty < 2) {
+                            board->unlocked_difficulty++;
+                        }
+                    } else {
+                        if (board->difficulty == 1) board->consecutive_fails_normal++;
+                        if (board->difficulty == 2) board->consecutive_fails_hard++;
+                    }
+
                     /* Economy System: Reward coins */
                     uint32_t earned = board->score / 100;
-                    if (board->combo_multiplier >= 5) earned += 20;
+                    if (board->max_combo_this_game >= 5) earned += 20;
                     board->total_coins += earned;
 
                     view_play_sound_effect("game_over");

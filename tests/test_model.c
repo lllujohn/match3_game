@@ -526,6 +526,7 @@ static void test_screen_to_board_last_cell(void) {
 static void test_advanced_elim_combo_multiplier(void) {
     GameBoard b;
     memset(&b, 0, sizeof(b));
+    b.difficulty = 1; /* Normal mode for base combo testing */
     fill_board_checkerboard(&b);
 
     b.board[0][0].gem_type = GEM_RED;

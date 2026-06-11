@@ -79,7 +79,8 @@ typedef enum {
     GAME_STATE_PROP_WAND_FIRST_SEL,     /**< Waiting for 1st wand target.   */
     GAME_STATE_PROP_WAND_SECOND_SEL,    /**< Waiting for 2nd wand target.   */
     GAME_STATE_PROP_SHUFFLE_CONFIRM,    /**< Waiting to confirm shuffle.    */
-    GAME_STATE_PROP_MOVES_CONFIRM       /**< Waiting to confirm +5 moves.   */
+    GAME_STATE_PROP_MOVES_CONFIRM,      /**< Waiting to confirm +5 moves.   */
+    GAME_STATE_PROP_BUY_CONFIRM         /**< Waiting to confirm prop buy.   */
 } GameState;
 
 /**
@@ -128,6 +129,8 @@ typedef struct {
     int     bomb_type;/**< BombType value. */
     int     next_bomb_type; /**< BombType to become after this elimination pass. */
 
+    bool  is_stone;                  /**< True if this is an unmovable stone. */
+    bool  has_ice;                   /**< True if this gem is covered in ice. */
     bool  is_marked_for_elimination; /**< Set by model_check_eliminations(). */
     float animation_progress;        /**< General-purpose anim progress 0‥1. */
 
@@ -152,6 +155,18 @@ typedef struct {
     uint32_t  moves_remaining;     /**< Moves left before game-over.         */
     int       level;               /**< Current level (future use).          */
     int       difficulty;          /**< 0=Easy, 1=Normal, 2=Hard.           */
+
+    /* ---- Difficulty configuration & in-game stats ---- */
+    uint32_t  target_score;           /**< Score required to clear the level.   */
+    uint8_t   max_props_per_game;     /**< Max total props usable per game.     */
+    uint8_t   max_sandglass_per_game; /**< Max sandglass usable per game.       */
+    float     hint_trigger_time;      /**< Seconds before showing a hint.       */
+    float     wildcard_prob;          /**< Probability to spawn a wildcard.     */
+    uint32_t  buy_prop_price;         /**< Coin cost to buy a prop in-game.     */
+    uint8_t   used_props_total;       /**< Total props used this session.       */
+    uint8_t   used_sandglass_count;   /**< Sandglass used this session.         */
+    uint32_t  max_combo_this_game;    /**< Highest combo achieved this session. */
+    uint8_t   stars_earned;           /**< Stars earned upon game over (1-3).   */
 
     GameState current_state;       /**< Active FSM state.                    */
     GameState previous_state;      /**< Used for pause/resume.              */
@@ -184,8 +199,11 @@ typedef struct {
     float     combo_popup_timer;   /**< Countdown for combo pop-up text (s). */
     uint32_t  combo_popup_value;   /**< Multiplier value shown in pop-up.    */
     
-    /* ---- Economy and Props ---- */
+    /* ---- Economy, Meta-Progression and Props ---- */
     uint32_t  total_coins;         /**< Persists across rounds (Economy).    */
+    int       unlocked_difficulty; /**< Max difficulty unlocked (0-2).       */
+    int       consecutive_fails_normal; /**< Fails in a row on Normal.       */
+    int       consecutive_fails_hard;   /**< Fails in a row on Hard.         */
     uint8_t   prop_hammer_count;   /**< Hammer prop inventory count.         */
     uint8_t   prop_wand_count;     /**< Wand prop inventory count.           */
     uint8_t   prop_shuffle_count;  /**< Shuffle prop inventory count.        */

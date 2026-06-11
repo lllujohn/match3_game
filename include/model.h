@@ -53,7 +53,7 @@ bool model_init_board_with_difficulty(GameBoard *board, int difficulty);
  *                            Lerp animation.
  * @return Fully initialised Gem value.
  */
-Gem model_generate_gem(uint8_t row, uint8_t col, bool offscreen_spawn);
+Gem model_generate_gem(GameBoard *board, uint8_t row, uint8_t col, bool offscreen_spawn);
 
 /* ================================================================
  *  Core elimination logic
