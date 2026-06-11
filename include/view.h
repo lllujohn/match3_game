@@ -1,27 +1,4 @@
-/**
- * @file view.h
- * @brief Public API of the Match-3 View (rendering) layer.
- *
- * The View owns all SDL2 state (window, renderer, fonts, audio).
- * It reads GameBoard data but **never** writes game-logic fields —
- * the only fields it mutates are the Lerp animation coordinates
- * (screen_x, screen_y, elim_scale, animations_settled).
- *
- * Lifecycle:
- * @code
- *   view_init_window();
- *   view_load_assets();
- *   // --- game loop ---
- *   view_update_animations(&board, dt);
- *   view_render_frame(&board);
- *   // --- shutdown ---
- *   view_unload_assets();
- *   view_destroy_window();
- * @endcode
- *
- * @author  Match-3 Contributors
- * @license MIT
- */
+
 #ifndef MATCH3_VIEW_H
 #define MATCH3_VIEW_H
 

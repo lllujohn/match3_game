@@ -1,14 +1,4 @@
-/**
- * @file types.h
- * @brief Shared data types, constants, and structs for the Match-3 game.
- *
- * This header is the single source of truth for all game-logic types.
- * It has ZERO dependency on SDL2, EasyX, or any graphics library —
- * the Model layer must remain completely decoupled from rendering.
- *
- * @author  Match-3 Contributors
- * @license MIT
- */
+
 #ifndef MATCH3_TYPES_H
 #define MATCH3_TYPES_H
 

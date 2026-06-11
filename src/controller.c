@@ -1,13 +1,4 @@
-/**
- * @file controller.c
- * @brief Match-3 Controller — SDL2 event-driven input and FSM update.
- *
- * Replaces all Windows-specific APIs (GetAsyncKeyState, MouseHit,
- * GetMouseMsg, Sleep, VK_*) with portable SDL2 equivalents.
- *
- * @author  Match-3 Contributors
- * @license MIT
- */
+
 
 #include "controller.h"
 #include "model.h"

@@ -1,20 +1,3 @@
-/**
- * @file view.c
- * @brief Match-3 View layer — SDL2 hardware-accelerated rendering.
- *
- * Replaces the entire EasyX/Windows GDI rendering stack with portable
- * SDL2 + SDL2_ttf + SDL2_mixer calls.  All colours are defined as
- * SDL_Color constants; all drawing is done through the SDL_Renderer.
- *
- * Drawing primitives implemented here (SDL2 lacks them natively):
- *  - fill_circle()            Bresenham scanline fill
- *  - fill_rounded_rect()      Four-corner circle + three rects
- *  - draw_rounded_rect_outline()  Midpoint circle + four lines
- *
- * @author  Match-3 Contributors
- * @license MIT
- */
-
 #include "view.h"
 #include "types.h"
 

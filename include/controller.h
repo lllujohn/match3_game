@@ -1,20 +1,4 @@
-/**
- * @file controller.h
- * @brief Public API of the Match-3 Controller layer.
- *
- * The Controller is the bridge between SDL2 input events and the
- * game's Model.  It owns the finite-state-machine update loop and
- * all save/load plumbing.
- *
- * Input design:
- * - controller_handle_event() is called once per SDL event from the
- *   main loop's SDL_PollEvent() drain.
- * - controller_update_state_machine() is called once per frame to
- *   advance timer-based state transitions.
- *
- * @author  Match-3 Contributors
- * @license MIT
- */
+
 #ifndef MATCH3_CONTROLLER_H
 #define MATCH3_CONTROLLER_H
 

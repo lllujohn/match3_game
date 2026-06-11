@@ -1,14 +1,4 @@
-/**
- * @file test_model.c
- * @brief Unit tests for the Match-3 Model layer.
- *
- * Lightweight, zero-dependency C11 test runner.
- * Uses a simple assert-based framework — no external library required.
- * All tests are pure logic: no SDL2, no graphics, no filesystem I/O.
- *
- * Run:  ./build/tests/test_model
- * CI:   ctest --test-dir build --output-on-failure
- */
+
 
 #include "model.h"
 #include "types.h"

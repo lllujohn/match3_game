@@ -1,18 +1,4 @@
-/**
- * @file model.h
- * @brief Public API of the Match-3 Model layer.
- *
- * The Model is a **pure computation** layer — it knows nothing about
- * SDL2, EasyX, or any rendering technology.  All functions operate
- * exclusively on @ref GameBoard, @ref Gem, and related POD structs
- * defined in types.h.
- *
- * ### Thread safety
- * None.  All functions assume single-threaded access.
- *
- * @author  Match-3 Contributors
- * @license MIT
- */
+
 #ifndef MATCH3_MODEL_H
 #define MATCH3_MODEL_H
 

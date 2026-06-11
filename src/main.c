@@ -1,19 +1,4 @@
-/**
- * @file main.c
- * @brief Match-3 Game entry point — SDL2 event loop, 60 FPS frame cap.
- *
- * Replaces WinMain + QueryPerformanceCounter + Sleep with:
- *   - Standard C11 int main(int, char**)
- *   - SDL_GetTicks64() for high-resolution timing
- *   - SDL_Delay() for frame pacing
- *   - SDL_PollEvent() non-blocking event drain
- *
- * Frame budget (TARGET_FPS = 60):
- *   16 ms total  =  event poll + update + render + SDL_Delay(remainder)
- *
- * @author  Match-3 Contributors
- * @license MIT
- */
+
 
 #include "model.h"
 #include "view.h"

@@ -1,24 +1,9 @@
-/**
- * @file model.c
- * @brief Match-3 Model layer — pure C11 game logic, zero SDL2 dependency.
- *
- * Transliterated from model.cpp to strict C11.  The only changes
- * from the original C++ are:
- *   - C standard headers instead of C++ wrapped headers
- *   - Reference parameters replaced by explicit pointer indirection
- *   - No-arg functions declared as (void) per C11 requirement
- *
- * @author  Match-3 Contributors
- * @license MIT
- */
-
 #include "model.h"
 #include "types.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <time.h>
 #include <time.h>
 
 /* ================================================================
