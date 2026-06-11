@@ -725,7 +725,7 @@ bool controller_update_state_machine(GameBoard *board, float dt)
                 if (board->moves_remaining > 0)
                     board->moves_remaining--;
 
-                if (board->moves_remaining == 0 || model_is_deadlock(board)) {
+                if (board->moves_remaining == 0) {
                     board->current_state = GAME_STATE_GAME_OVER;
 
                     /* Settlement: compute stars */
@@ -753,6 +753,19 @@ bool controller_update_state_machine(GameBoard *board, float dt)
 
                     view_play_sound_effect("game_over");
                     controller_quick_save(board);
+                } else if (model_is_deadlock(board)) {
+                    /* Deadlock detected. We do not game over if they have resources to escape! */
+                    if (board->prop_shuffle_count == 0 && 
+                        board->prop_hammer_count == 0 && 
+                        board->prop_wand_count == 0 && 
+                        board->total_coins < board->buy_prop_price) {
+                        /* Truly deadlocked and bankrupt */
+                        board->moves_remaining = 0;
+                        board->current_state = GAME_STATE_GAME_OVER;
+                    } else {
+                        view_play_sound_effect("error"); /* Give them an audio hint that the board is stuck */
+                        board->current_state = GAME_STATE_WAITING_INPUT;
+                    }
                 } else {
                     board->current_state = GAME_STATE_WAITING_INPUT;
                 }
