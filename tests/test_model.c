@@ -639,7 +639,7 @@ static void test_bomb_radius_clears_3x3(void) {
  * ================================================================ */
 
 static void test_save_load_roundtrip(void) {
-    const char *tmp = "/tmp/match3_test_save.dat";
+    const char *tmp = "match3_test_save.dat";
 
     GameBoard original;
     model_init_board(&original);
@@ -660,11 +660,13 @@ static void test_save_load_roundtrip(void) {
     TEST_ASSERT_EQ(loaded.moves_remaining,  7U,     "Loaded moves must match");
     TEST_ASSERT_EQ(loaded.difficulty,       2,      "Loaded difficulty must match");
     TEST_ASSERT_EQ(loaded.combo_multiplier, 3U,     "Loaded combo_multiplier must match");
+
+    remove(tmp); /* Clean up */
 }
 
 static void test_load_corrupt_file_rejected(void) {
     /* Write garbage (no valid magic header) */
-    const char *tmp = "/tmp/match3_corrupt.dat";
+    const char *tmp = "match3_corrupt.dat";
     FILE *f = fopen(tmp, "wb");
     if (f) {
         uint32_t garbage = 0xDEADBEEFu;
@@ -676,6 +678,8 @@ static void test_load_corrupt_file_rejected(void) {
     model_init_board(&b);
     bool ok = model_load_game(&b, tmp);
     TEST_ASSERT_FALSE(ok, "model_load_game must reject a file with invalid magic");
+
+    remove(tmp); /* Clean up */
 }
 
 /* ================================================================
