@@ -1,6 +1,7 @@
 # Build directories
 build/
 build-*/
+build_asan/
 out/
 cmake-build-*/
 *.dir/
