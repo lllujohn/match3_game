@@ -229,11 +229,6 @@ bool model_init_board_with_difficulty(GameBoard *board, int difficulty)
     board->consecutive_fails_normal = b_fails_norm;
     board->consecutive_fails_hard = b_fails_hard;
     
-    /* Give default props to completely new users, but don't overwrite if they exist or were depleted */
-    /* Wait, if it's the first run, they should start with 5. Let's let them keep what they have,
-       but if it's the very very first initialization (board is all 0), maybe give 5? 
-       Actually, if it's the first init, they will just have 0. They can buy props. 
-       Let's restore exactly what they had. */
     board->prop_hammer_count  = b_hammer;
     board->prop_wand_count    = b_wand;
     board->prop_shuffle_count = b_shuffle;
@@ -418,57 +413,37 @@ void model_apply_eliminations(GameBoard *board)
     if (!board)
         return;
 
-    uint32_t round_score = 0;
-    int elim_count = 0;
-
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c < BOARD_WIDTH; c++) {
-            if (board->board[r][c].is_marked_for_elimination) {
-                elim_count++;
-                
-                /* Score rules */
-                if (board->board[r][c].bomb_type != BOMB_NONE) round_score += 100;
-                else if (board->board[r][c].gem_type == GEM_WILDCARD) round_score += 150;
-                
-                /* Ice behavior: ice breaks, but the underlying gem is PRESERVED */
-                if (board->board[r][c].has_ice) {
-                    board->board[r][c].has_ice = false;
-                    board->board[r][c].is_marked_for_elimination = false;
-                    continue; /* Do not empty this gem! */
-                }
+            if (!board->board[r][c].is_marked_for_elimination)
+                continue;
 
-                /* Clear stone flag if a stone was destroyed by bomb/hammer */
-                if (board->board[r][c].is_stone) {
-                    board->board[r][c].is_stone = false;
-                }
-
-                board->board[r][c].gem_type = GEM_EMPTY;
+            /* Ice breaks first; the underlying gem is preserved */
+            if (board->board[r][c].has_ice) {
+                board->board[r][c].has_ice = false;
                 board->board[r][c].is_marked_for_elimination = false;
-                
-                if (board->board[r][c].next_gem_type_override == GEM_WILDCARD) {
-                    board->board[r][c].gem_type = GEM_WILDCARD;
-                    board->board[r][c].bomb_type = BOMB_NONE;
-                    board->board[r][c].next_gem_type_override = 0;
-                } else if (board->board[r][c].next_bomb_type != BOMB_NONE) {
-                    /* Spawn a bomb instead of empty space */
-                    board->board[r][c].gem_type  = (uint8_t)(rand() % 5); 
-                    board->board[r][c].bomb_type = board->board[r][c].next_bomb_type;
-                    board->board[r][c].next_bomb_type = BOMB_NONE;
-                } else {
-                    board->board[r][c].bomb_type = BOMB_NONE;
-                }
+                continue;
+            }
+
+            board->board[r][c].is_stone = false;
+            board->board[r][c].is_marked_for_elimination = false;
+
+            if (board->board[r][c].next_gem_type_override == GEM_WILDCARD) {
+                /* 5-match: leave a Wildcard gem in place */
+                board->board[r][c].gem_type            = GEM_WILDCARD;
+                board->board[r][c].bomb_type           = BOMB_NONE;
+                board->board[r][c].next_bomb_type      = BOMB_NONE;
+                board->board[r][c].next_gem_type_override = 0;
+            } else if (board->board[r][c].next_bomb_type != BOMB_NONE) {
+                /* 4-match: leave a bomb gem in place */
+                board->board[r][c].gem_type  = (uint8_t)(rand() % 5);
+                board->board[r][c].bomb_type = board->board[r][c].next_bomb_type;
+                board->board[r][c].next_bomb_type = BOMB_NONE;
+            } else {
+                board->board[r][c].gem_type  = GEM_EMPTY;
+                board->board[r][c].bomb_type = BOMB_NONE;
             }
         }
-    }
-
-    if (elim_count > 0) {
-        if (elim_count == 3) round_score += 30;
-        else if (elim_count == 4) round_score += 50;
-        else if (elim_count >= 5) round_score += 80;
-        else round_score += (uint32_t)elim_count * 10; /* Fallback for unexpected sizes */
-
-        float multiplier = 1.0f + (float)(board->combo_multiplier - 1) * 0.5f;
-        board->score += (uint32_t)((float)round_score * multiplier);
     }
 }
 
@@ -998,11 +973,10 @@ int model_prop_hammer_smash(GameBoard *board, uint8_t row, uint8_t col) {
 
 bool model_prop_wand_swap(GameBoard *board, uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2) {
     if (!board) return false;
-    
-    /* Forbid wand swap on stones (ice is okay to swap with magic wand if we want, but let's forbid it for consistency) */
-    if (board->board[r1][c1].is_stone || board->board[r2][c2].is_stone) return false;
-    if (board->board[r1][c1].has_ice || board->board[r2][c2].has_ice) return false;
+    /* Bounds check before any array access */
     if (r1 >= BOARD_HEIGHT || c1 >= BOARD_WIDTH || r2 >= BOARD_HEIGHT || c2 >= BOARD_WIDTH) return false;
+    if (board->board[r1][c1].is_stone || board->board[r2][c2].is_stone) return false;
+    if (board->board[r1][c1].has_ice  || board->board[r2][c2].has_ice)  return false;
     if (board->board[r1][c1].gem_type == GEM_EMPTY || board->board[r2][c2].gem_type == GEM_EMPTY) return false;
     if (board->prop_wand_count == 0) return false;
 

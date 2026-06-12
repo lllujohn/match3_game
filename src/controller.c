@@ -108,14 +108,10 @@ static void handle_key_difficulty(GameBoard *board, SDL_Keycode key)
             break;
         case SDLK_RETURN:
         case SDLK_KP_ENTER:
-            if (false) {
-                view_play_sound_effect("error");
-            } else {
-                model_init_board_with_difficulty(board, board->highlighted_difficulty);
-                g_ctrl.difficulty = board->highlighted_difficulty;
-                view_set_bgm(1);
-                view_play_sound_effect("start");
-            }
+            model_init_board_with_difficulty(board, board->highlighted_difficulty);
+            g_ctrl.difficulty = board->highlighted_difficulty;
+            view_set_bgm(1);
+            view_play_sound_effect("start");
             break;
         case SDLK_ESCAPE:
             board->current_state           = GAME_STATE_MAIN_MENU;
@@ -303,14 +299,10 @@ static void handle_mouse_difficulty(GameBoard *board, int mx, int my)
 
     for (int i = 0; i < 3; i++) {
         if (point_in_button(mx, my, cx, btn_y + i * 100, 300, 74)) {
-            if (false) {
-                view_play_sound_effect("error");
-            } else {
-                model_init_board_with_difficulty(board, i);
-                g_ctrl.difficulty = i;
-                view_set_bgm(1);
-                view_play_sound_effect("start");
-            }
+            model_init_board_with_difficulty(board, i);
+            g_ctrl.difficulty = i;
+            view_set_bgm(1);
+            view_play_sound_effect("start");
         }
     }
 }
@@ -459,8 +451,9 @@ static void handle_mouse_in_game(GameBoard *board, int mx, int my)
                     return;
                 }
                 if (board->difficulty == 2) {
-                    if (i == 2 && board->used_sandglass_count > 0) { view_play_sound_effect("error"); return; }
-                    if (i == 3 && (board->level & 2)) { view_play_sound_effect("error"); return; }
+                    /* Hard mode: shuffle can only be used once (level flag 2); sandglass can only be used once */
+                    if (i == 2 && (board->level & 2))               { view_play_sound_effect("error"); return; }
+                    if (i == 3 && board->used_sandglass_count > 0)  { view_play_sound_effect("error"); return; }
                 }
 
                 /* Otherwise select or use the prop */
