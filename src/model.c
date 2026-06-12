@@ -510,14 +510,15 @@ bool model_apply_gravity(GameBoard *board)
                     board->board[write_row][c].target_y = gem_target_y((uint8_t)write_row);
                     board->board[write_row][c].has_ice = dest_has_ice; /* Gem entering an ice block gets covered */
 
-                    /* Clear the source cell, but preserve its ice if it was an empty ice block (which shouldn't be falling anyway) */
-                    bool src_has_ice = board->board[r][c].has_ice;
+                    /* Clear the source cell completely — the ice moved WITH the gem to its
+                       destination, so we must NOT leave an orphan has_ice=true on the
+                       empty source cell (that would confuse the spawner logic). */
                     memset(&board->board[r][c], 0, sizeof(Gem));
                     board->board[r][c].gem_type  = (uint8_t)GEM_EMPTY;
                     board->board[r][c].row       = (uint8_t)r;
                     board->board[r][c].col       = (uint8_t)c;
                     board->board[r][c].elim_scale = 0.0f;
-                    board->board[r][c].has_ice = src_has_ice;
+                    /* has_ice intentionally left false: the gem took the ice with it */
 
                     moved = true;
                 }
@@ -574,6 +575,23 @@ void model_refill_board(GameBoard *board)
             changed = true;
         }
     } while (changed);
+
+    /* Safety-net: after the spawner-driven loop, force-fill any cell that is still
+       empty and is not a stone.  This handles corner cases (e.g. isolated sections
+       created by simultaneous stone/ice destruction) so empty holes can never persist. */
+    for (int r = 0; r < BOARD_HEIGHT; r++) {
+        for (int c = 0; c < BOARD_WIDTH; c++) {
+            if (!board->board[r][c].is_stone &&
+                board->board[r][c].gem_type == (uint8_t)GEM_EMPTY) {
+                bool had_ice = board->board[r][c].has_ice;
+                board->board[r][c] = model_generate_gem(board, (uint8_t)r, (uint8_t)c, true);
+                board->board[r][c].has_ice = had_ice;
+                /* Stagger the off-screen start so gems cascade in from the top */
+                board->board[r][c].screen_y = (float)(BOARD_OFFSET_Y - GEM_SIZE * (1 + r));
+                refilled = true;
+            }
+        }
+    }
 
     if (refilled) {
         board->animations_settled = false;
@@ -731,24 +749,33 @@ void model_trigger_bomb_chain(GameBoard *board, uint8_t row, uint8_t col)
 
     switch (board->board[row][col].bomb_type) {
         case BOMB_LINE_H:
-            for (int c = 0; c < BOARD_WIDTH; c++)
-                if (board->board[row][c].gem_type < MAX_GEM_TYPES)
+            for (int c = 0; c < BOARD_WIDTH; c++) {
+                /* Stones are permanent barriers — bombs cannot destroy them */
+                if (!board->board[row][c].is_stone &&
+                    board->board[row][c].gem_type < MAX_GEM_TYPES)
                     board->board[row][c].is_marked_for_elimination = true;
+            }
             break;
 
         case BOMB_LINE_V:
-            for (int r = 0; r < BOARD_HEIGHT; r++)
-                if (board->board[r][col].gem_type < MAX_GEM_TYPES)
+            for (int r = 0; r < BOARD_HEIGHT; r++) {
+                if (!board->board[r][col].is_stone &&
+                    board->board[r][col].gem_type < MAX_GEM_TYPES)
                     board->board[r][col].is_marked_for_elimination = true;
+            }
             break;
 
         case BOMB_CROSS:
-            for (int r = 0; r < BOARD_HEIGHT; r++)
-                if (board->board[r][col].gem_type < MAX_GEM_TYPES)
+            for (int r = 0; r < BOARD_HEIGHT; r++) {
+                if (!board->board[r][col].is_stone &&
+                    board->board[r][col].gem_type < MAX_GEM_TYPES)
                     board->board[r][col].is_marked_for_elimination = true;
-            for (int c = 0; c < BOARD_WIDTH; c++)
-                if (board->board[row][c].gem_type < MAX_GEM_TYPES)
+            }
+            for (int c = 0; c < BOARD_WIDTH; c++) {
+                if (!board->board[row][c].is_stone &&
+                    board->board[row][c].gem_type < MAX_GEM_TYPES)
                     board->board[row][c].is_marked_for_elimination = true;
+            }
             break;
 
         case BOMB_RADIUS:
@@ -757,6 +784,7 @@ void model_trigger_bomb_chain(GameBoard *board, uint8_t row, uint8_t col)
                     int rr = row + dr, cc = col + dc;
                     if (rr >= 0 && rr < BOARD_HEIGHT &&
                         cc >= 0 && cc < BOARD_WIDTH &&
+                        !board->board[rr][cc].is_stone &&
                         board->board[rr][cc].gem_type < MAX_GEM_TYPES)
                         board->board[rr][cc].is_marked_for_elimination = true;
                 }
