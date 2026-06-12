@@ -63,17 +63,19 @@ static void handle_key_main_menu(GameBoard *board, SDL_Keycode key)
     switch (key) {
         case SDLK_UP:
             board->highlighted_menu_option =
-                (board->highlighted_menu_option - 1 + 2) % 2;
+                (board->highlighted_menu_option - 1 + 3) % 3;
             break;
         case SDLK_DOWN:
             board->highlighted_menu_option =
-                (board->highlighted_menu_option + 1) % 2;
+                (board->highlighted_menu_option + 1) % 3;
             break;
         case SDLK_RETURN:
         case SDLK_KP_ENTER:
             if (board->highlighted_menu_option == 0) {
                 board->current_state          = GAME_STATE_DIFFICULTY_SELECTION;
                 board->highlighted_difficulty = 1;
+            } else if (board->highlighted_menu_option == 1) {
+                board->current_state          = GAME_STATE_RULES;
             } else {
                 g_ctrl.wants_quit = true;
             }
@@ -83,6 +85,13 @@ static void handle_key_main_menu(GameBoard *board, SDL_Keycode key)
             break;
         default:
             break;
+    }
+}
+
+static void handle_key_rules(GameBoard *board, SDL_Keycode key)
+{
+    if (key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_ESCAPE) {
+        board->current_state = GAME_STATE_MAIN_MENU;
     }
 }
 
@@ -234,6 +243,30 @@ static void handle_key_in_game(GameBoard *board, SDL_Keycode key)
  *  Mouse sub-handlers
  * ================================================================ */
 
+static void handle_hover_main_menu(GameBoard *board, int mx, int my)
+{
+    int cx    = WINDOW_WIDTH / 2;
+    int btn_y = view_has_badge() ? 330 : 250;
+    int btn_space = view_has_badge() ? 80 : 90;
+    int btn_h = view_has_badge() ? 60 : 64;
+
+    board->highlighted_menu_option = -1;
+    for (int i = 0; i < 3; i++) {
+        if (point_in_button(mx, my, cx, btn_y + i * btn_space, 280, btn_h)) {
+            board->highlighted_menu_option = i;
+        }
+    }
+}
+
+static void handle_hover_rules(GameBoard *board, int mx, int my)
+{
+    int cx = WINDOW_WIDTH / 2;
+    board->highlighted_menu_option = -1;
+    if (point_in_button(mx, my, cx, 750, 280, 64)) {
+        board->highlighted_menu_option = 0;
+    }
+}
+
 static void handle_mouse_main_menu(GameBoard *board, int mx, int my)
 {
     int cx    = WINDOW_WIDTH / 2;
@@ -241,15 +274,25 @@ static void handle_mouse_main_menu(GameBoard *board, int mx, int my)
     int btn_space = view_has_badge() ? 80 : 90;
     int btn_h = view_has_badge() ? 60 : 64;
 
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 3; i++) {
         if (point_in_button(mx, my, cx, btn_y + i * btn_space, 280, btn_h)) {
             if (i == 0) {
                 board->current_state          = GAME_STATE_DIFFICULTY_SELECTION;
                 board->highlighted_difficulty = 1;
+            } else if (i == 1) {
+                board->current_state          = GAME_STATE_RULES;
             } else {
                 g_ctrl.wants_quit = true;
             }
         }
+    }
+}
+
+static void handle_mouse_rules(GameBoard *board, int mx, int my)
+{
+    int cx = WINDOW_WIDTH / 2;
+    if (point_in_button(mx, my, cx, 750, 280, 64)) {
+        board->current_state = GAME_STATE_MAIN_MENU;
     }
 }
 
@@ -595,6 +638,9 @@ void controller_handle_event(GameBoard *board, const SDL_Event *event)
             case GAME_STATE_DIFFICULTY_SELECTION:
                 handle_key_difficulty(board, key);
                 break;
+            case GAME_STATE_RULES:
+                handle_key_rules(board, key);
+                break;
             case GAME_STATE_PAUSED:
                 handle_key_paused(board, key);
                 break;
@@ -627,6 +673,9 @@ void controller_handle_event(GameBoard *board, const SDL_Event *event)
             case GAME_STATE_DIFFICULTY_SELECTION:
                 handle_mouse_difficulty(board, mx, my);
                 break;
+            case GAME_STATE_RULES:
+                handle_mouse_rules(board, mx, my);
+                break;
             case GAME_STATE_PAUSED:
                 handle_mouse_paused(board, mx, my);
                 break;
@@ -642,13 +691,25 @@ void controller_handle_event(GameBoard *board, const SDL_Event *event)
     if (event->type == SDL_MOUSEMOTION) {
         int mx = event->motion.x;
         int my = event->motion.y;
-        uint8_t row, col;
-        if (model_screen_to_board_coord(mx, my, &row, &col)) {
-            board->hover_row = row;
-            board->hover_col = col;
-        } else {
-            board->hover_row = 255;
-            board->hover_col = 255;
+
+        switch (board->current_state) {
+            case GAME_STATE_MAIN_MENU:
+                handle_hover_main_menu(board, mx, my);
+                break;
+            case GAME_STATE_RULES:
+                handle_hover_rules(board, mx, my);
+                break;
+            default: {
+                uint8_t row, col;
+                if (model_screen_to_board_coord(mx, my, &row, &col)) {
+                    board->hover_row = row;
+                    board->hover_col = col;
+                } else {
+                    board->hover_row = 255;
+                    board->hover_col = 255;
+                }
+                break;
+            }
         }
     }
 }

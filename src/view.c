@@ -1191,8 +1191,8 @@ void view_draw_main_menu(const GameBoard *board)
         draw_text_centered(r, g_view.font_medium, "按任意键或点击继续",
                            cx, 260, kTextSecondaryColor);
 
-        static const char *LABELS[] = {"开始游戏", "退出游戏"};
-        for (int i = 0; i < 2; i++) {
+        static const char *LABELS[] = {"开始游戏", "游戏规则", "退出游戏"};
+        for (int i = 0; i < 3; i++) {
             bool sel = (i == board->highlighted_menu_option);
             draw_menu_button(cx, 330 + i * 80, 280, 60, LABELS[i], sel, NULL, false);
         }
@@ -1201,8 +1201,8 @@ void view_draw_main_menu(const GameBoard *board)
         draw_text_centered(r, g_view.font_medium, "经典三消游戏体验",
                            cx, 160, kTextSecondaryColor);
 
-        static const char *LABELS[] = {"开始游戏", "退出游戏"};
-        for (int i = 0; i < 2; i++) {
+        static const char *LABELS[] = {"开始游戏", "游戏规则", "退出游戏"};
+        for (int i = 0; i < 3; i++) {
             bool sel = (i == board->highlighted_menu_option);
             draw_menu_button(cx, 250 + i * 90, 280, 64, LABELS[i], sel, NULL, false);
         }

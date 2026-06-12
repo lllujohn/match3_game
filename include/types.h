@@ -81,7 +81,8 @@ typedef enum {
     GAME_STATE_PROP_WAND_SECOND_SEL,    /**< Waiting for 2nd wand target.   */
     GAME_STATE_PROP_SHUFFLE_CONFIRM,    /**< Waiting to confirm shuffle.    */
     GAME_STATE_PROP_MOVES_CONFIRM,      /**< Waiting to confirm +5 moves.   */
-    GAME_STATE_PROP_BUY_CONFIRM         /**< Waiting to confirm prop buy.   */
+    GAME_STATE_PROP_BUY_CONFIRM,        /**< Waiting to confirm prop buy.   */
+    GAME_STATE_RULES                    /**< Showing game rules.            */
 } GameState;
 
 /**
