@@ -1213,6 +1213,41 @@ void view_draw_main_menu(const GameBoard *board)
                        cx, WINDOW_HEIGHT - 30, kTextHintColor);
 }
 
+static void view_draw_rules(const GameBoard *board)
+{
+    SDL_Renderer *r = g_view.renderer;
+    int cx = WINDOW_WIDTH / 2;
+
+    draw_text_centered(r, g_view.font_title, "游戏规则", cx, 80, kTextPrimaryColor);
+    
+    const char *rules[] = {
+        "【基础玩法】",
+        "点击两个相邻的宝石进行交换。横向或纵向凑齐3个或以上相同颜色的",
+        "宝石即可消除并得分。消除后上方的宝石会受重力落下填补空位。",
+        "",
+        "【困难模式与冰块】",
+        "困难模式下，部分宝石会被冰块冻结。被冻结的宝石无法移动，也会",
+        "阻挡上方宝石的下落。必须通过匹配消除或者使用道具才能打碎冰块。",
+        "",
+        "【神奇道具】",
+        "你可以使用金币购买道具：",
+        "- 小木槌：直接砸碎任意一个宝石（或冰块）",
+        "- 魔法棒：无视规则强行交换任意两个宝石",
+        "- 星空重置：将全盘宝石重新洗牌",
+        "- 时光沙漏：增加5步剩余步数",
+        "",
+        "尽情挑战高分吧！"
+    };
+    
+    int start_y = 160;
+    for (int i = 0; i < 16; i++) {
+        draw_text_centered(r, g_view.font_medium, rules[i], cx, start_y + i * 35, kTextSecondaryColor);
+    }
+
+    bool sel = (board->highlighted_menu_option == 0);
+    draw_menu_button(cx, 750, 280, 64, "返回主菜单", sel, NULL, false);
+}
+
 void view_draw_difficulty_menu(const GameBoard *board)
 {
     SDL_Renderer *r = g_view.renderer;
@@ -1328,6 +1363,9 @@ bool view_render_frame(const GameBoard *board)
     switch (board->current_state) {
         case GAME_STATE_MAIN_MENU:
             view_draw_main_menu(board);
+            break;
+        case GAME_STATE_RULES:
+            view_draw_rules(board);
             break;
         case GAME_STATE_DIFFICULTY_SELECTION:
             view_draw_difficulty_menu(board);
