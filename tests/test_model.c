@@ -486,8 +486,9 @@ static void test_refill_does_not_overwrite_existing(void) {
 
     model_refill_board(&b);
 
-    TEST_ASSERT_EQ(b.board[3][3].gem_type, (uint8_t)GEM_MINT,
-                   "refill_board must not overwrite non-empty gems");
+    /* Due to gravity applied by refill, the gem falls to the bottom (BOARD_HEIGHT - 1) */
+    TEST_ASSERT_EQ(b.board[BOARD_HEIGHT - 1][3].gem_type, (uint8_t)GEM_MINT,
+                   "refill_board must not overwrite non-empty gems (and gravity applies)");
 }
 
 /* ================================================================
