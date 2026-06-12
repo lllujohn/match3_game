@@ -73,8 +73,9 @@ typedef enum {
     GAME_STATE_ELIMINATING,             /**< Shrink-to-zero anim.           */
     GAME_STATE_GRAVITY_APPLY,           /**< Gems falling down.             */
     GAME_STATE_REFILL,                  /**< New gems dropping in.          */
-    GAME_STATE_PAUSED,                  /**< Game is paused.                */
+    GAME_STATE_DEAD_END_ANIM,           /**< Dead end fade in animation.    */
     GAME_STATE_GAME_OVER,               /**< No moves left / deadlock.      */
+    GAME_STATE_PAUSED,                  /**< Game is paused.                */
     GAME_STATE_PROP_HAMMER_WAITING,     /**< Waiting for hammer target.     */
     GAME_STATE_PROP_WAND_FIRST_SEL,     /**< Waiting for 1st wand target.   */
     GAME_STATE_PROP_WAND_SECOND_SEL,    /**< Waiting for 2nd wand target.   */
@@ -128,6 +129,7 @@ typedef struct {
     uint8_t gem_type; /**< GemColorType value; GEM_EMPTY = vacant. */
     int     bomb_type;/**< BombType value. */
     int     next_bomb_type; /**< BombType to become after this elimination pass. */
+    uint8_t next_gem_type_override; /**< Intent to replace gem with specific type (e.g. Wildcard). */
 
     bool  is_stone;                  /**< True if this is an unmovable stone. */
     bool  has_ice;                   /**< True if this gem is covered in ice. */

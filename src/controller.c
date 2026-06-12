@@ -99,7 +99,7 @@ static void handle_key_difficulty(GameBoard *board, SDL_Keycode key)
             break;
         case SDLK_RETURN:
         case SDLK_KP_ENTER:
-            if (board->highlighted_difficulty > board->unlocked_difficulty) {
+            if (false) {
                 view_play_sound_effect("error");
             } else {
                 model_init_board_with_difficulty(board, board->highlighted_difficulty);
@@ -260,7 +260,7 @@ static void handle_mouse_difficulty(GameBoard *board, int mx, int my)
 
     for (int i = 0; i < 3; i++) {
         if (point_in_button(mx, my, cx, btn_y + i * 100, 300, 74)) {
-            if (i > board->unlocked_difficulty) {
+            if (false) {
                 view_play_sound_effect("error");
             } else {
                 model_init_board_with_difficulty(board, i);
@@ -302,10 +302,10 @@ static void handle_mouse_paused(GameBoard *board, int mx, int my)
 static void handle_mouse_game_over(GameBoard *board, int mx, int my)
 {
     int cx    = WINDOW_WIDTH / 2;
-    int btn_y = 300;
+    int btn_y = 330;
 
     for (int i = 0; i < 2; i++) {
-        if (point_in_button(mx, my, cx, btn_y + i * 90, 280, 64)) {
+        if (point_in_button(mx, my, cx, btn_y + i * 80, 280, 64)) {
             if (i == 0) {
                 board->current_state          = GAME_STATE_DIFFICULTY_SELECTION;
                 board->highlighted_difficulty = board->difficulty;
@@ -386,8 +386,15 @@ static void handle_mouse_in_game(GameBoard *board, int mx, int my)
                     (i == 1 && board->prop_wand_count == 0) ||
                     (i == 2 && board->prop_shuffle_count == 0) ||
                     (i == 3 && board->prop_moves_count == 0)) {
-                    if (board->buy_prop_price > 0 && board->total_coins >= board->buy_prop_price) {
-                        board->total_coins -= board->buy_prop_price;
+                    
+                    uint32_t price = 0;
+                    if (i == 0) price = 50;
+                    else if (i == 1) price = 80;
+                    else if (i == 2) price = 100;
+                    else if (i == 3) price = 150;
+                    
+                    if (price > 0 && board->total_coins >= price) {
+                        board->total_coins -= price;
                         if (i == 0) board->prop_hammer_count++;
                         if (i == 1) board->prop_wand_count++;
                         if (i == 2) board->prop_shuffle_count++;
@@ -450,13 +457,21 @@ static void handle_mouse_in_game(GameBoard *board, int mx, int my)
     }
 
     if (board->current_state == GAME_STATE_PROP_HAMMER_WAITING) {
-        if (model_prop_hammer_smash(board, row, col)) {
+        int hammer_res = model_prop_hammer_smash(board, row, col);
+        if (hammer_res > 0) {
             board->used_props_total++;
-            board->current_state = GAME_STATE_ELIMINATING;
-            board->state_timer = 0.0f;
-            board->animation_duration = 0.35f;
-            board->animations_settled = false;
-            view_play_sound_effect("pao");
+            if (hammer_res == 1) {
+                /* Ice broken, gem intact. No move consumed, no gravity/cascade needed. */
+                board->current_state = GAME_STATE_WAITING_INPUT;
+                view_play_sound_effect("clear");
+            } else {
+                /* Gem/stone broken. Gravity/cascade needed, which will eventually deduct a move. */
+                board->current_state = GAME_STATE_ELIMINATING;
+                board->state_timer = 0.0f;
+                board->animation_duration = 0.35f;
+                board->animations_settled = false;
+                view_play_sound_effect("pao");
+            }
         }
         return;
     }
@@ -759,9 +774,21 @@ bool controller_update_state_machine(GameBoard *board, float dt)
                         board->prop_hammer_count == 0 && 
                         board->prop_wand_count == 0 && 
                         board->total_coins < board->buy_prop_price) {
-                        /* Truly deadlocked and bankrupt */
-                        board->moves_remaining = 0;
-                        board->current_state = GAME_STATE_GAME_OVER;
+                        /* Try to auto-shuffle */
+                        bool shuffled = false;
+                        for (int i = 0; i < 10 && !shuffled; i++) {
+                            shuffled = model_prop_shuffle(board);
+                        }
+                        if (!shuffled) {
+                            /* Absolute deadlock */
+                            board->moves_remaining = 0;
+                            board->current_state = GAME_STATE_DEAD_END_ANIM;
+                            board->animation_duration = 3.0f;
+                            board->state_timer = 0.0f;
+                        } else {
+                            view_play_sound_effect("error"); /* Audio hint */
+                            board->current_state = GAME_STATE_WAITING_INPUT;
+                        }
                     } else {
                         view_play_sound_effect("error"); /* Give them an audio hint that the board is stuck */
                         board->current_state = GAME_STATE_WAITING_INPUT;
@@ -805,6 +832,16 @@ bool controller_update_state_machine(GameBoard *board, float dt)
             if (view_all_gems_settled(board) ||
                 board->state_timer >= board->animation_duration) {
                 board->combo_multiplier++;
+                board->current_state = GAME_STATE_ELIMINATION_CHECK;
+                board->state_timer   = 0.0f;
+                changed = true;
+            }
+            break;
+
+        case GAME_STATE_DEAD_END_ANIM:
+            if (board->state_timer >= board->animation_duration) {
+                /* Settlement is already triggered because moves_remaining=0 will be caught by ELIMINATION_CHECK, 
+                   so we can just transition to ELIMINATION_CHECK to let it do the game over settlement. */
                 board->current_state = GAME_STATE_ELIMINATION_CHECK;
                 board->state_timer   = 0.0f;
                 changed = true;

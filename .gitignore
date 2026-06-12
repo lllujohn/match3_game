@@ -65,3 +65,10 @@ match3_save.dat
 EasyXw.lib
 build.bat
 CMakeLists_game.txt
+
+# In-source build artifacts
+Makefile
+Testing/
+match3_game
+tests/Makefile
+tests/test_model

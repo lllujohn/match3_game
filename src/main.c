@@ -43,22 +43,28 @@ int main(int argc, char *argv[])
     /* ---- Initialise game board ---- */
     GameBoard board;
 
-    /* Try to restore high_score from a previous save */
-    {
-        GameBoard temp;
-        if (model_load_game(&temp, "match3_save.dat")) {
-            board.high_score = temp.high_score;
-        } else {
-            board.high_score = 0;
-        }
-    }
-
     if (!model_init_board(&board)) {
         fprintf(stderr, "[main] model_init_board failed\n");
         controller_destroy();
         view_unload_assets();
         view_destroy_window();
         return EXIT_FAILURE;
+    }
+
+    /* Try to restore high_score, coins and difficulty from a previous save */
+    {
+        GameBoard temp;
+        if (model_load_game(&temp, "match3_save.dat")) {
+            board.high_score = temp.high_score;
+            board.total_coins = temp.total_coins;
+            board.unlocked_difficulty = temp.unlocked_difficulty;
+            board.consecutive_fails_normal = temp.consecutive_fails_normal;
+            board.consecutive_fails_hard = temp.consecutive_fails_hard;
+            board.prop_hammer_count = temp.prop_hammer_count;
+            board.prop_wand_count = temp.prop_wand_count;
+            board.prop_shuffle_count = temp.prop_shuffle_count;
+            board.prop_moves_count = temp.prop_moves_count;
+        }
     }
 
     view_set_window_title("Match-3 | A cross-platform puzzle game");

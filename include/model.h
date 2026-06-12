@@ -267,7 +267,7 @@ bool model_find_best_hint(GameBoard *board,
  * @param[in] col        Column of the target gem.
  * @return @c true if the hammer was used; @c false if invalid position or empty.
  */
-bool model_prop_hammer_smash(GameBoard *board, uint8_t row, uint8_t col);
+int model_prop_hammer_smash(GameBoard *board, uint8_t row, uint8_t col);
 
 /**
  * @brief Wand prop: forcefully swaps two adjacent gems.

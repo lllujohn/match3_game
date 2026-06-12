@@ -90,8 +90,16 @@ typedef struct {
     SDL_Texture  *tex_prop_shuffle;
     SDL_Texture  *tex_prop_moves;
     
+    SDL_Texture  *tex_hammer;
+    SDL_Texture  *tex_wand;
+    SDL_Texture  *tex_sandglass;
+    SDL_Texture  *tex_ice;
+    SDL_Texture  *tex_dead_end;
+    
     SDL_Texture  *tex_bg;
     SDL_Texture  *tex_bg_main;
+    
+    SDL_Texture  *tex_stone;
 
     bool          sdl_ok;
     bool          ttf_ok;
@@ -190,11 +198,13 @@ static void fill_circle(SDL_Renderer *r, int cx, int cy, int radius,
     }
 }
 
+
 /**
- * @brief Draw a circle outline using the midpoint algorithm.
+ * @brief Draw a quarter circle outline using the midpoint algorithm.
+ * @param quad  1=bottom-right, 2=bottom-left, 3=top-left, 4=top-right
  */
-static void draw_circle_outline(SDL_Renderer *r, int cx, int cy, int radius,
-                                 SDL_Color color, int thickness)
+static void draw_quarter_circle_outline(SDL_Renderer *r, int cx, int cy, int radius,
+                                 SDL_Color color, int thickness, int quad)
 {
     set_color(r, color);
     set_blend(r, SDL_BLENDMODE_BLEND);
@@ -203,14 +213,24 @@ static void draw_circle_outline(SDL_Renderer *r, int cx, int cy, int radius,
         int rad = radius - t;
         int x   = rad, y = 0, err = 0;
         while (x >= y) {
-            SDL_RenderDrawPoint(r, cx + x, cy + y);
-            SDL_RenderDrawPoint(r, cx + y, cy + x);
-            SDL_RenderDrawPoint(r, cx - y, cy + x);
-            SDL_RenderDrawPoint(r, cx - x, cy + y);
-            SDL_RenderDrawPoint(r, cx - x, cy - y);
-            SDL_RenderDrawPoint(r, cx - y, cy - x);
-            SDL_RenderDrawPoint(r, cx + y, cy - x);
-            SDL_RenderDrawPoint(r, cx + x, cy - y);
+            switch (quad) {
+                case 1:
+                    SDL_RenderDrawPoint(r, cx + x, cy + y);
+                    SDL_RenderDrawPoint(r, cx + y, cy + x);
+                    break;
+                case 2:
+                    SDL_RenderDrawPoint(r, cx - x, cy + y);
+                    SDL_RenderDrawPoint(r, cx - y, cy + x);
+                    break;
+                case 3:
+                    SDL_RenderDrawPoint(r, cx - x, cy - y);
+                    SDL_RenderDrawPoint(r, cx - y, cy - x);
+                    break;
+                case 4:
+                    SDL_RenderDrawPoint(r, cx + x, cy - y);
+                    SDL_RenderDrawPoint(r, cx + y, cy - x);
+                    break;
+            }
             y++;
             if (err <= 0)      { err += 2 * y + 1; }
             if (err > 0)       { x--; err -= 2 * x + 1; }
@@ -291,10 +311,10 @@ static void draw_rounded_rect_outline(SDL_Renderer *r, int x, int y,
         SDL_RenderDrawLine(r, xi + wi, yi + ri, xi + wi, yi + hi - ri);
 
         /* Four corners (arcs only — no fill) */
-        draw_circle_outline(r, xi + ri,      yi + ri,      ri, color, 1);
-        draw_circle_outline(r, xi + wi - ri, yi + ri,      ri, color, 1);
-        draw_circle_outline(r, xi + ri,      yi + hi - ri, ri, color, 1);
-        draw_circle_outline(r, xi + wi - ri, yi + hi - ri, ri, color, 1);
+        draw_quarter_circle_outline(r, xi + ri,      yi + ri,      ri, color, 1, 3);
+        draw_quarter_circle_outline(r, xi + wi - ri, yi + ri,      ri, color, 1, 4);
+        draw_quarter_circle_outline(r, xi + ri,      yi + hi - ri, ri, color, 1, 2);
+        draw_quarter_circle_outline(r, xi + wi - ri, yi + hi - ri, ri, color, 1, 1);
     }
 }
 
@@ -532,7 +552,7 @@ bool view_load_assets(void)
         g_view.font_body   = load_font_any_path(18);
         g_view.font_medium = load_font_any_path(24);
         g_view.font_large  = load_font_any_path(36);
-        g_view.font_title  = load_font_any_path(52);
+        g_view.font_title  = TTF_OpenFont("assets/fonts/SmileySans.ttf", 64);
     }
 
     /* Sound effects — missing files are silently ignored */
@@ -565,8 +585,14 @@ bool view_load_assets(void)
         g_view.tex_prop_wand    = load_tex_fallback("assets/images/prop_wand.png");
         g_view.tex_prop_shuffle = load_tex_fallback("assets/images/prop_shuffle.png");
         g_view.tex_prop_moves   = load_tex_fallback("assets/images/prop_moves.png");
+        g_view.tex_sandglass    = load_tex_fallback("assets/images/prop_sandglass.png");
+        g_view.tex_ice          = load_tex_fallback("assets/images/ice.png");
+        g_view.tex_dead_end     = load_tex_fallback("assets/images/dead_end.png");
+        
         g_view.tex_bg           = load_tex_fallback("assets/images/bg_game.png");
         g_view.tex_bg_main      = load_tex_fallback("assets/images/bg_main.png");
+        
+        g_view.tex_stone        = load_tex_fallback("assets/images/stone.png");
     }
 
     return true; /* always succeed — missing assets degrade gracefully */
@@ -597,6 +623,10 @@ void view_unload_assets(void)
     if (g_view.tex_prop_moves)   { SDL_DestroyTexture(g_view.tex_prop_moves);   g_view.tex_prop_moves   = NULL; }
     if (g_view.tex_bg)           { SDL_DestroyTexture(g_view.tex_bg);           g_view.tex_bg           = NULL; }
     if (g_view.tex_bg_main)      { SDL_DestroyTexture(g_view.tex_bg_main);      g_view.tex_bg_main      = NULL; }
+    if (g_view.tex_sandglass)    { SDL_DestroyTexture(g_view.tex_sandglass);    g_view.tex_sandglass    = NULL; }
+    if (g_view.tex_ice)          { SDL_DestroyTexture(g_view.tex_ice);          g_view.tex_ice          = NULL; }
+    if (g_view.tex_dead_end)     { SDL_DestroyTexture(g_view.tex_dead_end);     g_view.tex_dead_end     = NULL; }
+    if (g_view.tex_stone)        { SDL_DestroyTexture(g_view.tex_stone);        g_view.tex_stone        = NULL; }
 }
 
 /* ================================================================
@@ -757,8 +787,13 @@ static void draw_gem(const Gem *g, bool is_selected)
     if (cr < 1) cr = 1;
 
     if (g->is_stone) {
-        fill_rounded_rect(r, x, y, w, h, cr, (SDL_Color){128, 128, 128, 255});
-        draw_rounded_rect_outline(r, x, y, w, h, cr, (SDL_Color){100, 100, 100, 255}, 2);
+        if (g_view.tex_stone) {
+            SDL_Rect dst = {x, y, w, h};
+            SDL_RenderCopy(r, g_view.tex_stone, NULL, &dst);
+        } else {
+            fill_rounded_rect(r, x, y, w, h, cr, (SDL_Color){128, 128, 128, 255});
+            draw_rounded_rect_outline(r, x, y, w, h, cr, (SDL_Color){100, 100, 100, 255}, 2);
+        }
     } else if (g_view.tex_gem[g->gem_type]) {
         SDL_Rect dst = {x, y, w, h};
         SDL_RenderCopy(r, g_view.tex_gem[g->gem_type], NULL, &dst);
@@ -777,8 +812,17 @@ static void draw_gem(const Gem *g, bool is_selected)
 
     /* Ice Overlay */
     if (g->has_ice) {
-        fill_rounded_rect(r, x, y, w, h, cr, (SDL_Color){173, 216, 230, 128});
-        draw_rounded_rect_outline(r, x, y, w, h, cr, (SDL_Color){255, 255, 255, 180}, 1);
+        if (g_view.tex_ice) {
+            /* Make the ice slightly larger than the gem to wrap it completely */
+            SDL_Rect dst = {x - 6, y - 6, w + 12, h + 12};
+            /* Lower transparency further to let the gem color show through clearly */
+            SDL_SetTextureBlendMode(g_view.tex_ice, SDL_BLENDMODE_BLEND);
+            SDL_SetTextureAlphaMod(g_view.tex_ice, 130);
+            SDL_RenderCopy(r, g_view.tex_ice, NULL, &dst);
+        } else {
+            fill_rounded_rect(r, x, y, w, h, cr, (SDL_Color){173, 216, 230, 128});
+            draw_rounded_rect_outline(r, x, y, w, h, cr, (SDL_Color){255, 255, 255, 180}, 1);
+        }
     }
 
     /* Bomb indicator */
@@ -973,7 +1017,12 @@ static void draw_info_panel(const GameBoard *board)
             snprintf(buf, sizeof(buf), "x%u", props[i].count);
             draw_text_centered(r, g_view.font_hint, buf, dx + p_size/2, dy + p_size + 14, locked ? kTextHintColor : kTextPrimaryColor);
         } else {
-            snprintf(buf, sizeof(buf), "$%u", board->buy_prop_price);
+            uint32_t price = 0;
+            if (i == 0) price = 50;
+            else if (i == 1) price = 80;
+            else if (i == 2) price = 100;
+            else if (i == 3) price = 150;
+            snprintf(buf, sizeof(buf), "$%u", price);
             draw_text_centered(r, g_view.font_hint, buf, dx + p_size/2, dy + p_size + 14, (SDL_Color){255, 215, 0, 255});
         }
     }
@@ -1177,7 +1226,7 @@ void view_draw_difficulty_menu(const GameBoard *board)
     static const char *MOVES[] = {"50 步","30 步","15 步"};
     for (int i = 0; i < 3; i++) {
         bool sel = (i == board->highlighted_difficulty);
-        bool locked = (i > board->unlocked_difficulty);
+        bool locked = false; /* Force unlock for testing */
         draw_menu_button(cx, 220 + i * 100, 300, 74, NAMES[i], sel, locked ? "未解锁" : MOVES[i], locked);
     }
 
@@ -1286,6 +1335,37 @@ bool view_render_frame(const GameBoard *board)
         case GAME_STATE_PAUSED:
             view_draw_game_ui_complete(board);
             view_draw_pause_menu(board);
+            break;
+        case GAME_STATE_DEAD_END_ANIM:
+            view_draw_game_ui_complete(board);
+            if (g_view.tex_dead_end) {
+                float alpha_f = (board->state_timer / board->animation_duration) * 255.0f;
+                if (alpha_f > 255.0f) alpha_f = 255.0f;
+                
+                SDL_SetTextureBlendMode(g_view.tex_dead_end, SDL_BLENDMODE_BLEND);
+                SDL_SetTextureAlphaMod(g_view.tex_dead_end, (Uint8)alpha_f);
+                
+                int texW = 0, texH = 0;
+                SDL_QueryTexture(g_view.tex_dead_end, NULL, NULL, &texW, &texH);
+                
+                int board_w = BOARD_WIDTH  * GEM_SIZE;
+                int board_h = BOARD_HEIGHT * GEM_SIZE;
+                
+                /* Calculate scale to fit nicely (e.g. 80% of board width/height) */
+                float scale_x = ((float)board_w * 0.8f) / (float)texW;
+                float scale_y = ((float)board_h * 0.8f) / (float)texH;
+                float scale = (scale_x < scale_y) ? scale_x : scale_y;
+                if (scale > 1.0f) scale = 1.0f; /* Don't upscale if it's already small */
+                
+                int drawW = (int)((float)texW * scale);
+                int drawH = (int)((float)texH * scale);
+                
+                int cx = BOARD_OFFSET_X + board_w / 2;
+                int cy = BOARD_OFFSET_Y + board_h / 2;
+                
+                SDL_Rect dst = { cx - drawW / 2, cy - drawH / 2, drawW, drawH };
+                SDL_RenderCopy(r, g_view.tex_dead_end, NULL, &dst);
+            }
             break;
         case GAME_STATE_GAME_OVER:
             view_draw_game_over_screen(board);
