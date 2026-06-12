@@ -437,6 +437,11 @@ void model_apply_eliminations(GameBoard *board)
                     continue; /* Do not empty this gem! */
                 }
 
+                /* Clear stone flag if a stone was destroyed by bomb/hammer */
+                if (board->board[r][c].is_stone) {
+                    board->board[r][c].is_stone = false;
+                }
+
                 board->board[r][c].gem_type = GEM_EMPTY;
                 board->board[r][c].is_marked_for_elimination = false;
                 
