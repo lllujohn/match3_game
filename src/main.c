@@ -64,6 +64,13 @@ int main(int argc, char *argv[])
             board.prop_wand_count = temp.prop_wand_count;
             board.prop_shuffle_count = temp.prop_shuffle_count;
             board.prop_moves_count = temp.prop_moves_count;
+        } else {
+            /* First time playing (no save file), give initial gifts */
+            board.total_coins = 500;
+            board.prop_hammer_count = 1;
+            board.prop_wand_count = 1;
+            board.prop_shuffle_count = 1;
+            board.prop_moves_count = 1;
         }
     }
 
