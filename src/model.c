@@ -377,6 +377,7 @@ void model_apply_eliminations(GameBoard *board)
             if (board->board[r][c].has_ice) {
                 board->board[r][c].has_ice = false;
                 board->board[r][c].is_marked_for_elimination = false;
+                board->board[r][c].elim_scale = 1.0f; /* 恢复宝石的显示！ */
                 continue;
             }
 
@@ -415,12 +416,12 @@ bool model_apply_gravity(GameBoard *board)
 
         for (int r = BOARD_HEIGHT - 1; r >= 0; r--) {
             if (board->board[r][c].is_stone) {
-                write_row = r - 1; /* 石块是地板，重置写入位置到石块上方 */
+                if (write_row == r) write_row = r - 1; 
                 continue;
             }
             /* 带冰且有宝石的格子也当地板处理 */
             if (board->board[r][c].has_ice && board->board[r][c].gem_type != (uint8_t)GEM_EMPTY) {
-                write_row = r - 1;
+                if (write_row == r) write_row = r - 1;
                 continue;
             }
 
