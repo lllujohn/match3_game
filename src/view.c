@@ -1255,7 +1255,7 @@ void view_draw_difficulty_menu(const GameBoard *board)
     static const char *MOVES[] = {"50 步","30 步","15 步"};
     for (int i = 0; i < 3; i++) {
         bool sel = (i == board->highlighted_difficulty);
-        bool locked = false; /* Force unlock for testing */
+        bool locked = (i > board->unlocked_difficulty);
         draw_menu_button(cx, 220 + i * 100, 300, 74, NAMES[i], sel, locked ? "未解锁" : MOVES[i], locked);
     }
 
