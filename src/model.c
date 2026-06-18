@@ -6,34 +6,22 @@
 #include <stdio.h>
 #include <time.h>
 
-/* ================================================================
- *  Internal helpers — pixel coordinate arithmetic
- * ================================================================ */
+/* 把逻辑格坐标转成屏幕像素坐标（中心点） */
 
-/** Centre-X of a gem cell at logical column @p col (pixels). */
 static inline float gem_target_x(uint8_t col)
 {
     return (float)BOARD_OFFSET_X + ((float)col * (float)GEM_SIZE) + ((float)GEM_SIZE / 2.0f);
 }
 
-/** Centre-Y of a gem cell at logical row @p row (pixels). */
 static inline float gem_target_y(uint8_t row)
 {
     return (float)BOARD_OFFSET_Y + ((float)row * (float)GEM_SIZE) + ((float)GEM_SIZE / 2.0f);
 }
 
-/* ================================================================
- *  Initialisation helpers
- * ================================================================ */
-
-/**
- * @brief Check whether the board already contains a 3-in-a-row.
- *
- * Used during board generation to guarantee a clean start state.
- */
+/* 检查棋盘上有没有已经成立的消除（生成棋盘时用来重新洗牌） */
 static bool has_initial_match(const GameBoard *board)
 {
-    /* Check horizontal */
+    /* 横向扫描 */
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c <= BOARD_WIDTH - 3; c++) {
             uint8_t t1 = board->board[r][c].gem_type;
@@ -53,7 +41,7 @@ static bool has_initial_match(const GameBoard *board)
             if (match) return true;
         }
     }
-    /* Check vertical */
+    /* 纵向扫描 */
     for (int c = 0; c < BOARD_WIDTH; c++) {
         for (int r = 0; r <= BOARD_HEIGHT - 3; r++) {
             uint8_t t1 = board->board[r][c].gem_type;
@@ -76,21 +64,16 @@ static bool has_initial_match(const GameBoard *board)
     return false;
 }
 
-/* ================================================================
- *  Gem generation
- * ================================================================ */
-
+/* 随机生成一颗宝石。万能牌不会在这里随机出现，只有凑5连消才会触发 */
 Gem model_generate_gem(GameBoard *board, uint8_t row, uint8_t col, bool offscreen_spawn)
 {
     (void)board;
     Gem gem;
     memset(&gem, 0, sizeof(Gem));
 
-    gem.row       = row;
-    gem.col       = col;
-    
-    /* Wildcards are no longer generated randomly. They only spawn from 5-matches. */
-    gem.gem_type = (uint8_t)(rand() % 5); /* 0 to 4 */
+    gem.row      = row;
+    gem.col      = col;
+    gem.gem_type = (uint8_t)(rand() % 5); /* 随机五种普通颜色之一 */
     
     gem.bomb_type = BOMB_NONE;
     gem.is_stone = false;
@@ -103,6 +86,7 @@ Gem model_generate_gem(GameBoard *board, uint8_t row, uint8_t col, bool offscree
     gem.target_y = gem_target_y(row);
 
     if (offscreen_spawn) {
+        /* 从屏幕上方落入，制造掉落动画 */
         gem.screen_x = gem.target_x;
         gem.screen_y = gem.target_y - (float)(BOARD_HEIGHT * GEM_SIZE);
     } else {
@@ -113,10 +97,7 @@ Gem model_generate_gem(GameBoard *board, uint8_t row, uint8_t col, bool offscree
     return gem;
 }
 
-/* ================================================================
- *  Board initialisation
- * ================================================================ */
-
+/* 初始化棋盘（游戏第一次启动时用，停在主菜单界面） */
 bool model_init_board(GameBoard *board)
 {
     if (!board)
@@ -132,7 +113,7 @@ bool model_init_board(GameBoard *board)
     board->combo_multiplier   = 1;
     board->animations_settled = true;
 
-    /* Re-roll until the initial board has no 3-matches */
+    /* 一直重新生成，直到初始棋盘上没有现成的消除 */
     do {
         for (int r = 0; r < BOARD_HEIGHT; r++)
             for (int c = 0; c < BOARD_WIDTH; c++)
@@ -209,26 +190,25 @@ bool model_init_board_with_difficulty(GameBoard *board, int difficulty)
     if (!board || difficulty < 0 || difficulty > 2)
         return false;
 
-    /* Backup persistent fields before memset */
-    uint32_t b_high_score = board->high_score;
+    /* memset 前先把需要保留的字段存起来 */
+    uint32_t b_high_score  = board->high_score;
     uint32_t b_total_coins = board->total_coins;
-    int b_unlocked_diff = board->unlocked_difficulty;
-    int b_fails_norm = board->consecutive_fails_normal;
-    int b_fails_hard = board->consecutive_fails_hard;
-    uint8_t b_hammer = board->prop_hammer_count;
-    uint8_t b_wand = board->prop_wand_count;
+    int b_unlocked_diff    = board->unlocked_difficulty;
+    int b_fails_norm       = board->consecutive_fails_normal;
+    int b_fails_hard       = board->consecutive_fails_hard;
+    uint8_t b_hammer  = board->prop_hammer_count;
+    uint8_t b_wand    = board->prop_wand_count;
     uint8_t b_shuffle = board->prop_shuffle_count;
-    uint8_t b_moves = board->prop_moves_count;
+    uint8_t b_moves   = board->prop_moves_count;
 
     memset(board, 0, sizeof(GameBoard));
 
-    /* Restore persistent fields */
-    board->high_score = b_high_score;
-    board->total_coins = b_total_coins;
-    board->unlocked_difficulty = b_unlocked_diff;
+    /* 把刚才存的字段写回去 */
+    board->high_score              = b_high_score;
+    board->total_coins             = b_total_coins;
+    board->unlocked_difficulty     = b_unlocked_diff;
     board->consecutive_fails_normal = b_fails_norm;
-    board->consecutive_fails_hard = b_fails_hard;
-    
+    board->consecutive_fails_hard  = b_fails_hard;
     board->prop_hammer_count  = b_hammer;
     board->prop_wand_count    = b_wand;
     board->prop_shuffle_count = b_shuffle;
@@ -236,20 +216,18 @@ bool model_init_board_with_difficulty(GameBoard *board, int difficulty)
 
     board->current_state      = GAME_STATE_WAITING_INPUT;
     board->score              = 0;
-
     board->level              = 1;
     board->difficulty         = difficulty;
     apply_difficulty_configs(board);
-    
-    board->first_gem_selected = false;
+    board->first_gem_selected    = false;
     board->highlighted_difficulty = difficulty;
-    board->combo_multiplier   = 1;
-    board->animations_settled = false; /* triggers the fall-in animation */
-    board->used_props_total   = 0;
-    board->used_sandglass_count = 0;
-    board->max_combo_this_game = 0;
+    board->combo_multiplier      = 1;
+    board->animations_settled    = false; /* 触发开局的宝石掉落动画 */
+    board->used_props_total      = 0;
+    board->used_sandglass_count  = 0;
+    board->max_combo_this_game   = 0;
 
-    /* Generate a match-free, non-deadlock initial board with difficulty constraints */
+    /* 反复重新生成，直到棋盘满足：无初始消除、不死局、有足够可走的步数 */
     do {
         for (int r = 0; r < BOARD_HEIGHT; r++)
             for (int c = 0; c < BOARD_WIDTH; c++)
@@ -266,7 +244,7 @@ bool model_init_board_with_difficulty(GameBoard *board, int difficulty)
 
     place_stones_ice(board);
 
-    /* Push all gems above the viewport for a cascade drop-in animation */
+    /* 把所有宝石的初始屏幕位置设到视口上方，触发开场掉落动画 */
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c < BOARD_WIDTH; c++) {
             Gem *g   = &board->board[r][c];
@@ -278,10 +256,7 @@ bool model_init_board_with_difficulty(GameBoard *board, int difficulty)
     return true;
 }
 
-/* ================================================================
- *  Elimination detection  (O(n), single-pass row+column scan)
- * ================================================================ */
-
+/* 扫描棋盘上所有可消除的宝石（单次遍历，先横后纵） */
 uint32_t model_check_eliminations(GameBoard *board, EliminationSet *out_set)
 {
     if (!board || !out_set)
@@ -289,7 +264,7 @@ uint32_t model_check_eliminations(GameBoard *board, EliminationSet *out_set)
 
     memset(out_set, 0, sizeof(EliminationSet));
 
-    /* Clear all elimination marks and bomb intents */
+    /* 先清掉上一轮留下的标记 */
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c < BOARD_WIDTH; c++) {
             board->board[r][c].is_marked_for_elimination = false;
@@ -298,7 +273,7 @@ uint32_t model_check_eliminations(GameBoard *board, EliminationSet *out_set)
         }
     }
 
-    /* Horizontal scan */
+    /* 横向扫描：找出同色连续段 */
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c < BOARD_WIDTH - 2; ) {
             if (board->board[r][c].is_stone) { c++; continue; }
@@ -320,7 +295,7 @@ uint32_t model_check_eliminations(GameBoard *board, EliminationSet *out_set)
                 for (int k = c; k < end; k++) {
                     board->board[r][k].is_marked_for_elimination = true;
                     if (end - c >= 5 && k == bomb_idx) {
-                        /* 5-match creates a Wildcard */
+                        /* 5连消→万能牌 */
                         board->board[r][k].next_bomb_type = BOMB_NONE;
                         board->board[r][k].next_gem_type_override = GEM_WILDCARD;
                     } else if (end - c == 4 && k == bomb_idx) {
@@ -334,7 +309,7 @@ uint32_t model_check_eliminations(GameBoard *board, EliminationSet *out_set)
         }
     }
 
-    /* Vertical scan */
+    /* 纵向扫描：同上，方向改成列 */
     for (int c = 0; c < BOARD_WIDTH; c++) {
         for (int r = 0; r < BOARD_HEIGHT - 2; ) {
             if (board->board[r][c].is_stone) { r++; continue; }
@@ -356,10 +331,11 @@ uint32_t model_check_eliminations(GameBoard *board, EliminationSet *out_set)
                 for (int k = r; k < end; k++) {
                     board->board[k][c].is_marked_for_elimination = true;
                     if (end - r >= 5 && k == bomb_idx) {
-                        /* 5-match creates a Wildcard */
+                        /* 5连消→万能牌 */
                         board->board[k][c].next_bomb_type = BOMB_NONE;
                         board->board[k][c].next_gem_type_override = GEM_WILDCARD;
                     } else if (end - r == 4 && k == bomb_idx) {
+                        /* 若横纵同时是4连消，升级成十字炸弹 */
                         if (board->board[k][c].next_bomb_type == BOMB_LINE_V) {
                             board->board[k][c].next_bomb_type = BOMB_CROSS;
                         } else {
@@ -374,7 +350,7 @@ uint32_t model_check_eliminations(GameBoard *board, EliminationSet *out_set)
         }
     }
 
-    /* Collect results */
+    /* 统计分数并记录所有被标记的格子 */
     uint32_t points = 0;
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c < BOARD_WIDTH; c++) {
@@ -386,7 +362,7 @@ uint32_t model_check_eliminations(GameBoard *board, EliminationSet *out_set)
                 points += 10;
                 if (board->board[r][c].next_bomb_type == BOMB_RADIUS) points += 50;
                 else if (board->board[r][c].next_bomb_type != BOMB_NONE) points += 30;
-                if (board->board[r][c].bomb_type != BOMB_NONE) points += 20;
+                if (board->board[r][c].bomb_type != BOMB_NONE) points += 20; /* 爆了一颗炸弹额外加分 */
             }
         }
     }
@@ -404,10 +380,7 @@ uint32_t model_check_eliminations_advanced(GameBoard *board, EliminationSet *out
     return pts;
 }
 
-/* ================================================================
- *  Apply eliminations — writes GEM_EMPTY to marked cells
- * ================================================================ */
-
+/* 把所有标记过的格子清掉（冰块先碎，宝石留着；4/5连消留下炸弹/万能牌） */
 void model_apply_eliminations(GameBoard *board)
 {
     if (!board)
@@ -418,7 +391,7 @@ void model_apply_eliminations(GameBoard *board)
             if (!board->board[r][c].is_marked_for_elimination)
                 continue;
 
-            /* Ice breaks first; the underlying gem is preserved */
+            /* 有冰块时先打冰，宝石完好保留，本轮消除到此为止 */
             if (board->board[r][c].has_ice) {
                 board->board[r][c].has_ice = false;
                 board->board[r][c].is_marked_for_elimination = false;
@@ -429,15 +402,15 @@ void model_apply_eliminations(GameBoard *board)
             board->board[r][c].is_marked_for_elimination = false;
 
             if (board->board[r][c].next_gem_type_override == GEM_WILDCARD) {
-                /* 5-match: leave a Wildcard gem in place */
-                board->board[r][c].gem_type            = GEM_WILDCARD;
-                board->board[r][c].bomb_type           = BOMB_NONE;
-                board->board[r][c].next_bomb_type      = BOMB_NONE;
+                /* 5连消：原地留一颗万能牌 */
+                board->board[r][c].gem_type               = GEM_WILDCARD;
+                board->board[r][c].bomb_type              = BOMB_NONE;
+                board->board[r][c].next_bomb_type         = BOMB_NONE;
                 board->board[r][c].next_gem_type_override = 0;
             } else if (board->board[r][c].next_bomb_type != BOMB_NONE) {
-                /* 4-match: leave a bomb gem in place */
-                board->board[r][c].gem_type  = (uint8_t)(rand() % 5);
-                board->board[r][c].bomb_type = board->board[r][c].next_bomb_type;
+                /* 4连消：原地留一颗炸弹 */
+                board->board[r][c].gem_type       = (uint8_t)(rand() % 5);
+                board->board[r][c].bomb_type      = board->board[r][c].next_bomb_type;
                 board->board[r][c].next_bomb_type = BOMB_NONE;
             } else {
                 board->board[r][c].gem_type  = GEM_EMPTY;
@@ -447,10 +420,7 @@ void model_apply_eliminations(GameBoard *board)
     }
 }
 
-/* ================================================================
- *  Gravity — compact non-empty gems toward the bottom of each column
- * ================================================================ */
-
+/* 重力：让每列的宝石往下掉，填满空格（石块和冰格是地板，挡住上面的宝石） */
 bool model_apply_gravity(GameBoard *board)
 {
     if (!board)
@@ -463,10 +433,10 @@ bool model_apply_gravity(GameBoard *board)
 
         for (int r = BOARD_HEIGHT - 1; r >= 0; r--) {
             if (board->board[r][c].is_stone) {
-                write_row = r - 1;
+                write_row = r - 1; /* 石块是地板，重置写入位置到石块上方 */
                 continue;
             }
-            /* If cell has ice AND a gem, it acts as a solid floor */
+            /* 带冰且有宝石的格子也当地板处理 */
             if (board->board[r][c].has_ice && board->board[r][c].gem_type != (uint8_t)GEM_EMPTY) {
                 write_row = r - 1;
                 continue;
@@ -474,26 +444,22 @@ bool model_apply_gravity(GameBoard *board)
 
             if (board->board[r][c].gem_type != (uint8_t)GEM_EMPTY) {
                 if (write_row != r) {
-                    /* Remember destination's ice status (e.g. if it's an empty ice block) */
+                    /* 目标格可能本身带冰，移动时要把冰的状态传过去 */
                     bool dest_has_ice = board->board[write_row][c].has_ice;
 
-                    /* Move gem down; screen_x/y retain old value for Lerp */
-                    board->board[write_row][c]         = board->board[r][c];
-                    board->board[write_row][c].row     = (uint8_t)write_row;
-                    board->board[write_row][c].col     = (uint8_t)c;
+                    board->board[write_row][c]          = board->board[r][c];
+                    board->board[write_row][c].row      = (uint8_t)write_row;
+                    board->board[write_row][c].col      = (uint8_t)c;
                     board->board[write_row][c].target_x = gem_target_x((uint8_t)c);
                     board->board[write_row][c].target_y = gem_target_y((uint8_t)write_row);
-                    board->board[write_row][c].has_ice = dest_has_ice; /* Gem entering an ice block gets covered */
+                    board->board[write_row][c].has_ice  = dest_has_ice;
 
-                    /* Clear the source cell completely — the ice moved WITH the gem to its
-                       destination, so we must NOT leave an orphan has_ice=true on the
-                       empty source cell (that would confuse the spawner logic). */
+                    /* 清空源格子，注意不能留下 has_ice=true 的孤儿格 */
                     memset(&board->board[r][c], 0, sizeof(Gem));
-                    board->board[r][c].gem_type  = (uint8_t)GEM_EMPTY;
-                    board->board[r][c].row       = (uint8_t)r;
-                    board->board[r][c].col       = (uint8_t)c;
+                    board->board[r][c].gem_type   = (uint8_t)GEM_EMPTY;
+                    board->board[r][c].row        = (uint8_t)r;
+                    board->board[r][c].col        = (uint8_t)c;
                     board->board[r][c].elim_scale = 0.0f;
-                    /* has_ice intentionally left false: the gem took the ice with it */
 
                     moved = true;
                 }
@@ -504,10 +470,7 @@ bool model_apply_gravity(GameBoard *board)
     return moved;
 }
 
-/* ================================================================
- *  Refill — spawn new gems above the viewport for empty cells
- * ================================================================ */
-
+/* 填充：在空格上方生成新宝石并让它掉下来 */
 void model_refill_board(GameBoard *board)
 {
     if (!board)
@@ -523,37 +486,30 @@ void model_refill_board(GameBoard *board)
             for (int c = 0; c < BOARD_WIDTH; c++) {
                 if (board->board[r][c].is_stone) continue;
 
-                /* Spawner logic: Row 0 is always a spawner. 
-                   Any cell directly beneath a stone is ALSO a spawner.
-                   Any cell directly beneath an ice block is ALSO a spawner (since ice acts as solid floor). */
+                /* 第0行是入口；紧贴石块/冰块下方的格子也是入口（因为上方被堵死了） */
                 bool is_spawner = (r == 0) || 
                                   (r > 0 && board->board[r-1][c].is_stone) ||
                                   (r > 0 && board->board[r-1][c].has_ice && board->board[r-1][c].gem_type != (uint8_t)GEM_EMPTY);
 
                 if (is_spawner && board->board[r][c].gem_type == GEM_EMPTY) {
-                    /* Preserve any ice the empty block might have */
                     bool had_ice = board->board[r][c].has_ice;
                     board->board[r][c] = model_generate_gem(board, (uint8_t)r, (uint8_t)c, true);
                     board->board[r][c].has_ice = had_ice;
-                    
-                    /* Start above screen for animation, staggered if multiple */
+                    /* 多颗宝石错开起始高度，产生瀑布式掉落效果 */
                     board->board[r][c].screen_y = (float)(BOARD_OFFSET_Y - GEM_SIZE * (1 + spawn_counts[c]));
                     spawn_counts[c]++;
-                    
                     refilled = true;
-                    changed = true;
+                    changed  = true;
                 }
             }
         }
-        /* Apply gravity to let the newly spawned gem fall, freeing the spawner */
+        /* 让刚生成的宝石先落下去，腾出入口格，以便下一轮继续生成 */
         if (model_apply_gravity(board)) {
             changed = true;
         }
     } while (changed);
 
-    /* Safety-net: after the spawner-driven loop, force-fill any cell that is still
-       empty and is not a stone.  This handles corner cases (e.g. isolated sections
-       created by simultaneous stone/ice destruction) so empty holes can never persist. */
+/* 兜底填充：处理石块/冰块同时消除等边界情况导致的孤立空洞 */
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c < BOARD_WIDTH; c++) {
             if (!board->board[r][c].is_stone &&
@@ -561,11 +517,18 @@ void model_refill_board(GameBoard *board)
                 bool had_ice = board->board[r][c].has_ice;
                 board->board[r][c] = model_generate_gem(board, (uint8_t)r, (uint8_t)c, true);
                 board->board[r][c].has_ice = had_ice;
-                /* Stagger the off-screen start so gems cascade in from the top */
                 board->board[r][c].screen_y = (float)(BOARD_OFFSET_Y - GEM_SIZE * (1 + r));
                 refilled = true;
             }
         }
+    }
+
+    /* 兜底填充后再跑一次重力，防止新宝石悬空 */
+    if (refilled) {
+        bool gravity_moved;
+        do {
+            gravity_moved = model_apply_gravity(board);
+        } while (gravity_moved);
     }
 
     if (refilled) {
@@ -611,13 +574,12 @@ bool model_swap_gems(GameBoard *board,
     board->board[r2][c2].target_x = gem_target_x(c2);
     board->board[r2][c2].target_y = gem_target_y(r2);
 
-    /* Check for match */
+    /* 试试交换，没消除就恢复 */
     EliminationSet es;
     model_check_eliminations(board, &es);
 
     if (es.count == 0) {
-        /* Roll back */
-        tmp              = board->board[r1][c1];
+        tmp               = board->board[r1][c1];
         board->board[r1][c1] = board->board[r2][c2];
         board->board[r2][c2] = tmp;
 
@@ -629,9 +591,7 @@ bool model_swap_gems(GameBoard *board,
         board->board[r2][c2].target_x = gem_target_x(c2);
         board->board[r2][c2].target_y = gem_target_y(r2);
 
-        /* screen_x/y already hold the opposite cell's position from
-         * before the swap — leave them there so the lerp animates a
-         * bounce-back to the just-restored targets. */
+        /* screen 坐标现在正好是对方的位置，保留不动可以让 Lerp 产生弹回动画 */
 
         for (int r = 0; r < BOARD_HEIGHT; r++)
             for (int c = 0; c < BOARD_WIDTH; c++)
@@ -643,28 +603,15 @@ bool model_swap_gems(GameBoard *board,
     return true;
 }
 
-/* ================================================================
- *  Deadlock detection  (O(BOARD_WIDTH × BOARD_HEIGHT))
- * ================================================================ */
-
-/**
- * @brief Simulate a swap and return the number of gems it would match.
- *
- * Swaps, calls model_check_eliminations, restores the swap, and clears
- * only the marks touched by that swap (O(BOARD_WIDTH+BOARD_HEIGHT)).
- *
- * @return Number of gems that would be eliminated (0 = no match).
- */
+/* 模拟交换，返回会消除多少个宝石（不修改棋盘） */
 static uint32_t simulate_swap(GameBoard *board,
                                int r1, int c1, int r2, int c2)
 {
-    /* Cannot swap stones or ice */
     if (board->board[r1][c1].is_stone || board->board[r2][c2].is_stone)
         return 0;
     if (board->board[r1][c1].has_ice || board->board[r2][c2].has_ice)
         return 0;
 
-    /* Swap */
     Gem tmp              = board->board[r1][c1];
     board->board[r1][c1] = board->board[r2][c2];
     board->board[r2][c2] = tmp;
@@ -674,14 +621,14 @@ static uint32_t simulate_swap(GameBoard *board,
     EliminationSet es;
     model_check_eliminations(board, &es);
 
-    /* Restore */
+    /* 恢复 */
     tmp              = board->board[r1][c1];
     board->board[r1][c1] = board->board[r2][c2];
     board->board[r2][c2] = tmp;
     board->board[r1][c1].row = (uint8_t)r1; board->board[r1][c1].col = (uint8_t)c1;
     board->board[r2][c2].row = (uint8_t)r2; board->board[r2][c2].col = (uint8_t)c2;
 
-    /* Clear only the two rows and two columns that were affected */
+    /* 只清掉此次交换涉及的行列标记，不要全盘清除 */
     for (int k = 0; k < BOARD_WIDTH; k++) {
         board->board[r1][k].is_marked_for_elimination = false;
         board->board[r2][k].is_marked_for_elimination = false;
@@ -694,6 +641,7 @@ static uint32_t simulate_swap(GameBoard *board,
     return es.count;
 }
 
+/* 判断棋盘是否死局（遇到死局就自动尝试洗牌） */
 bool model_is_deadlock(GameBoard *board)
 {
     if (!board)
@@ -713,10 +661,7 @@ bool model_is_deadlock(GameBoard *board)
     return true;
 }
 
-/* ================================================================
- *  Bomb chain trigger
- * ================================================================ */
-
+/* 炸弹连锁：根据炸弹类型标记一整行/列/十字/3×3范围内的宝石 */
 void model_trigger_bomb_chain(GameBoard *board, uint8_t row, uint8_t col)
 {
     if (!board)
@@ -725,7 +670,7 @@ void model_trigger_bomb_chain(GameBoard *board, uint8_t row, uint8_t col)
     switch (board->board[row][col].bomb_type) {
         case BOMB_LINE_H:
             for (int c = 0; c < BOARD_WIDTH; c++) {
-                /* Stones are permanent barriers — bombs cannot destroy them */
+                /* 石块是永久障碍，炸弹射不穿 */
                 if (!board->board[row][c].is_stone &&
                     board->board[row][c].gem_type < MAX_GEM_TYPES)
                     board->board[row][c].is_marked_for_elimination = true;
@@ -771,9 +716,46 @@ void model_trigger_bomb_chain(GameBoard *board, uint8_t row, uint8_t col)
     }
 }
 
-/* ================================================================
- *  State accessors
- * ================================================================ */
+/* 封存档 */
+bool model_undo_move(GameBoard *board)
+{
+    if (!board || !board->undo_available)
+        return false;
+
+    uint8_t r1 = board->undo_r1, c1 = board->undo_c1;
+    uint8_t r2 = board->undo_r2, c2 = board->undo_c2;
+
+    Gem tmp              = board->board[r1][c1];
+    board->board[r1][c1] = board->board[r2][c2];
+    board->board[r2][c2] = tmp;
+
+    board->board[r1][c1].row = r1; board->board[r1][c1].col = c1;
+    board->board[r2][c2].row = r2; board->board[r2][c2].col = c2;
+
+    board->board[r1][c1].target_x = (float)(BOARD_OFFSET_X + c1 * GEM_SIZE + GEM_SIZE / 2);
+    board->board[r1][c1].target_y = (float)(BOARD_OFFSET_Y + r1 * GEM_SIZE + GEM_SIZE / 2);
+    board->board[r2][c2].target_x = (float)(BOARD_OFFSET_X + c2 * GEM_SIZE + GEM_SIZE / 2);
+    board->board[r2][c2].target_y = (float)(BOARD_OFFSET_Y + r2 * GEM_SIZE + GEM_SIZE / 2);
+
+    /* 交换 screen 坐标让 Lerp 产生反向动画 */
+    float s1x = board->board[r1][c1].screen_x;
+    float s1y = board->board[r1][c1].screen_y;
+    float s2x = board->board[r2][c2].screen_x;
+    float s2y = board->board[r2][c2].screen_y;
+
+    board->board[r1][c1].screen_x = s2x;
+    board->board[r1][c1].screen_y = s2y;
+    board->board[r2][c2].screen_x = s1x;
+    board->board[r2][c2].screen_y = s1y;
+
+    board->undo_available  = false;
+    board->moves_remaining++;
+    board->score            = board->undo_score;
+    board->combo_multiplier = board->undo_combo;
+    return true;
+}
+
+/* 状态读写 */
 
 GameState model_get_game_state(const GameBoard *board)
 {
@@ -790,7 +772,6 @@ bool model_is_adjacent(const GameBoard *board, uint8_t row, uint8_t col)
 {
     if (!board || !board->first_gem_selected)
         return false;
-
     int dr = abs((int)row - (int)board->selected_row);
     int dc = abs((int)col - (int)board->selected_col);
     return (dr == 1 && dc == 0) || (dr == 0 && dc == 1);
@@ -804,65 +785,22 @@ bool model_screen_to_board_coord(int px, int py,
     if (px < BOARD_OFFSET_X || px >= BOARD_OFFSET_X + BOARD_WIDTH  * GEM_SIZE ||
         py < BOARD_OFFSET_Y || py >= BOARD_OFFSET_Y + BOARD_HEIGHT * GEM_SIZE)
         return false;
-
     *out_col = (uint8_t)((px - BOARD_OFFSET_X) / GEM_SIZE);
     *out_row = (uint8_t)((py - BOARD_OFFSET_Y) / GEM_SIZE);
     return *out_row < BOARD_HEIGHT && *out_col < BOARD_WIDTH;
 }
 
-bool model_undo_move(GameBoard *board)
-{
-    if (!board || !board->undo_available)
-        return false;
 
-    /* Swap the two gems back to their previous positions */
-    uint8_t r1 = board->undo_r1, c1 = board->undo_c1;
-    uint8_t r2 = board->undo_r2, c2 = board->undo_c2;
 
-    Gem tmp              = board->board[r1][c1];
-    board->board[r1][c1] = board->board[r2][c2];
-    board->board[r2][c2] = tmp;
+/* 存读档 */
 
-    board->board[r1][c1].row = r1; board->board[r1][c1].col = c1;
-    board->board[r2][c2].row = r2; board->board[r2][c2].col = c2;
-
-    board->board[r1][c1].target_x = (float)(BOARD_OFFSET_X + c1 * GEM_SIZE + GEM_SIZE / 2);
-    board->board[r1][c1].target_y = (float)(BOARD_OFFSET_Y + r1 * GEM_SIZE + GEM_SIZE / 2);
-    board->board[r2][c2].target_x = (float)(BOARD_OFFSET_X + c2 * GEM_SIZE + GEM_SIZE / 2);
-    board->board[r2][c2].target_y = (float)(BOARD_OFFSET_Y + r2 * GEM_SIZE + GEM_SIZE / 2);
-
-    /* Save old screen positions (from before the original swap) for
-     * the reverse-Lerp: screen is set to the opposite gem's OLD target,
-     * which is still sitting in the other gem's screen_x/y at this point. */
-    float s1x = board->board[r1][c1].screen_x;
-    float s1y = board->board[r1][c1].screen_y;
-    float s2x = board->board[r2][c2].screen_x;
-    float s2y = board->board[r2][c2].screen_y;
-
-    board->board[r1][c1].screen_x = s2x;
-    board->board[r1][c1].screen_y = s2y;
-    board->board[r2][c2].screen_x = s1x;
-    board->board[r2][c2].screen_y = s1y;
-
-    board->undo_available = false;
-    board->moves_remaining++;           /* Refund the move */
-    board->score = board->undo_score;   /* Restore pre-swap score */
-    board->combo_multiplier = board->undo_combo; /* Restore pre-swap combo */
-    return true;
-}
-
-/* ================================================================
- *  Persistence
- * ================================================================ */
-
-/* ---- Save-file format header ---- */
 #define SAVE_MAGIC   0x4D335356u  /* 'M3SV' */
 #define SAVE_VERSION 3u
 
 typedef struct {
-    uint32_t magic;   /* Must equal SAVE_MAGIC   */
-    uint16_t version; /* Must equal SAVE_VERSION */
-    uint16_t pad;     /* Reserved, write as 0    */
+    uint32_t magic;   /* 文件标识符 */
+    uint16_t version; /* 格式版本，不对就拒展 */
+    uint16_t pad;     /* 对齐用，写 0 */
 } SaveHeader;
 
 bool model_save_game(const GameBoard *board, const char *filename)
@@ -894,7 +832,7 @@ bool model_load_game(GameBoard *board, const char *filename)
     if (fread(&hdr, sizeof(hdr), 1, f) != 1 ||
         hdr.magic   != SAVE_MAGIC       ||
         hdr.version != SAVE_VERSION) {
-        fprintf(stderr, "[model] save file corrupt or version mismatch\n");
+        fprintf(stderr, "[model] 档汰损或版本不匹配\n");
         fclose(f);
         return false;
     }
@@ -904,9 +842,7 @@ bool model_load_game(GameBoard *board, const char *filename)
     return ok;
 }
 
-/* ================================================================
- *  Hint system  (finds global optimum)
- * ================================================================ */
+/* 提示：遍历所有可走的步，找出能消除最多宝石的一步 */
 
 bool model_find_best_hint(GameBoard *board,
                           uint8_t *hr, uint8_t *hc, uint8_t *hd)
@@ -946,11 +882,10 @@ bool model_find_best_hint(GameBoard *board,
     return found;
 }
 
-/* ================================================================
- *  Props System
- * ================================================================ */
+/* 道具 */
 
-/* Returns 0 on failure, 1 if only ice broken (no move consumed), 2 if gem/stone broken (move consumed) */
+/* 锤子：打一下选中的格子；有冰先碎冰，宝石/石块直接消除 */
+/* 返回 0=失败，1=只打了冰，2=消除了宝石/石块 */
 int model_prop_hammer_smash(GameBoard *board, uint8_t row, uint8_t col) {
     if (!board || row >= BOARD_HEIGHT || col >= BOARD_WIDTH) return 0;
     if (board->board[row][col].gem_type == GEM_EMPTY && !board->board[row][col].is_stone) return 0;
@@ -959,7 +894,7 @@ int model_prop_hammer_smash(GameBoard *board, uint8_t row, uint8_t col) {
     int result = 2;
     if (board->board[row][col].has_ice) {
         board->board[row][col].has_ice = false;
-        result = 1; /* Only broke ice, gem remains intact */
+        result = 1; /* 只打了冰，宝石没事 */
     } else {
         board->board[row][col].is_stone = false;
         board->board[row][col].gem_type = GEM_EMPTY;
@@ -967,7 +902,7 @@ int model_prop_hammer_smash(GameBoard *board, uint8_t row, uint8_t col) {
     }
     
     board->prop_hammer_count--;
-    board->undo_available = false; /* Clear undo after using board-altering prop */
+    board->undo_available = false; /* 用了道具就不能悔棋了 */
     return result;
 }
 
@@ -997,15 +932,14 @@ bool model_prop_wand_swap(GameBoard *board, uint8_t r1, uint8_t c1, uint8_t r2, 
     board->board[r2][c2].target_y = gem_target_y(r2);
 
     board->prop_wand_count--;
-    board->undo_available = false; /* Clear undo after using board-altering prop */
+    board->undo_available = false; /* 用了魔法棒就不能悔棋了 */
     return true;
 }
 
 bool model_prop_shuffle(GameBoard *board) {
     if (!board || board->prop_shuffle_count == 0) return false;
 
-    /* Collect all non-empty gems that are not stones. We INCLUDE ice blocks because 
-       we only swap the gem_type and bomb_type beneath the ice! */
+    /* 只打乱宝石/炸弹类型，不碰 is_stone/has_ice 等位置相关字段 */
     Gem* gems[BOARD_WIDTH * BOARD_HEIGHT];
     int count = 0;
     for (int r = 0; r < BOARD_HEIGHT; r++) {
@@ -1019,23 +953,20 @@ bool model_prop_shuffle(GameBoard *board) {
     if (count == 0) return false;
 
     do {
-        /* Fisher-Yates shuffle of the gem types and bomb types */
+        /* Fisher-Yates 洗牌，只交换颜色和炸弹类型 */
         for (int i = count - 1; i > 0; i--) {
             int j = rand() % (i + 1);
-            
             uint8_t temp_type = gems[i]->gem_type;
-            int temp_bomb = gems[i]->bomb_type;
-            
-            gems[i]->gem_type = gems[j]->gem_type;
+            int     temp_bomb = gems[i]->bomb_type;
+            gems[i]->gem_type  = gems[j]->gem_type;
             gems[i]->bomb_type = gems[j]->bomb_type;
-            
-            gems[j]->gem_type = temp_type;
+            gems[j]->gem_type  = temp_type;
             gems[j]->bomb_type = temp_bomb;
         }
     } while (has_initial_match(board));
 
     board->prop_shuffle_count--;
-    board->undo_available = false; /* Clear undo after using board-altering prop */
+    board->undo_available = false; /* 用了洗牌就不能悔棋了 */
     return true;
 }
 

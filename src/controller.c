@@ -496,17 +496,15 @@ static void handle_mouse_in_game(GameBoard *board, int mx, int my)
         int hammer_res = model_prop_hammer_smash(board, row, col);
         if (hammer_res > 0) {
             board->used_props_total++;
+            /* 不管是打冰还是打宝石，都需要走一遍重力和填充流程，避免产生空格 */
+            board->current_state     = GAME_STATE_ELIMINATING;
+            board->state_timer       = 0.0f;
+            board->animation_duration = 0.35f;
+            board->animations_settled = false;
             if (hammer_res == 1) {
-                /* Ice broken, gem intact. No move consumed, no gravity/cascade needed. */
-                board->current_state = GAME_STATE_WAITING_INPUT;
-                view_play_sound_effect("clear");
+                view_play_sound_effect("clear"); /* 只打了冰 */
             } else {
-                /* Gem/stone broken. Gravity/cascade needed, which will eventually deduct a move. */
-                board->current_state = GAME_STATE_ELIMINATING;
-                board->state_timer = 0.0f;
-                board->animation_duration = 0.35f;
-                board->animations_settled = false;
-                view_play_sound_effect("pao");
+                view_play_sound_effect("pao");   /* 打到了宝石/石块 */
             }
         }
         return;
