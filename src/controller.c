@@ -125,14 +125,10 @@ static void handle_key_difficulty(GameBoard *board, SDL_Keycode key)
             break;
         case SDLK_RETURN:
         case SDLK_KP_ENTER:
-            if (board->highlighted_difficulty <= board->unlocked_difficulty) {
-                model_init_board_with_difficulty(board, board->highlighted_difficulty);
-                g_ctrl.difficulty = board->highlighted_difficulty;
-                view_set_bgm(1);
-                view_play_sound_effect("start");
-            } else {
-                view_play_sound_effect("error");
-            }
+            model_init_board_with_difficulty(board, board->highlighted_difficulty);
+            g_ctrl.difficulty = board->highlighted_difficulty;
+            view_set_bgm(1);
+            view_play_sound_effect("start");
             break;
         case SDLK_ESCAPE:
             board->current_state           = GAME_STATE_MAIN_MENU;
@@ -328,14 +324,10 @@ static void handle_mouse_difficulty(GameBoard *board, int mx, int my)
 
     for (int i = 0; i < 3; i++) {
         if (point_in_button(mx, my, cx, btn_y + i * 100, 300, 74)) {
-            if (i <= board->unlocked_difficulty) {
-                model_init_board_with_difficulty(board, i);
-                g_ctrl.difficulty = i;
-                view_set_bgm(1);
-                view_play_sound_effect("start");
-            } else {
-                view_play_sound_effect("error");
-            }
+            model_init_board_with_difficulty(board, i);
+            g_ctrl.difficulty = i;
+            view_set_bgm(1);
+            view_play_sound_effect("start");
         }
     }
 }
