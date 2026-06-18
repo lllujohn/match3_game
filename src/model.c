@@ -132,17 +132,6 @@ void model_destroy_board(GameBoard *board)
 
 static uint32_t simulate_swap(GameBoard *board, int r1, int c1, int r2, int c2);
 
-static int count_valid_moves(GameBoard *board) {
-    int count = 0;
-    for (int r = 0; r < BOARD_HEIGHT; r++) {
-        for (int c = 0; c < BOARD_WIDTH; c++) {
-            if (c + 1 < BOARD_WIDTH && simulate_swap(board, r, c, r, c + 1) > 0) count++;
-            if (r + 1 < BOARD_HEIGHT && simulate_swap(board, r, c, r + 1, c) > 0) count++;
-        }
-    }
-    return count;
-}
-
 static void apply_difficulty_configs(GameBoard *board) {
     if (board->difficulty == 0) {
         board->target_score = 3000;
@@ -227,20 +216,13 @@ bool model_init_board_with_difficulty(GameBoard *board, int difficulty)
     board->used_sandglass_count  = 0;
     board->max_combo_this_game   = 0;
 
-    /* 反复重新生成，直到棋盘满足：无初始消除、不死局、有足够可走的步数 */
+    /* 反复重新生成，直到棋盘满足：无初始消除、不死局 */
     do {
         for (int r = 0; r < BOARD_HEIGHT; r++)
             for (int c = 0; c < BOARD_WIDTH; c++)
                 board->board[r][c] =
                     model_generate_gem(board, (uint8_t)r, (uint8_t)c, false);
-                    
-        if (has_initial_match(board) || model_is_deadlock(board)) continue;
-        
-        int valid_moves = count_valid_moves(board);
-        if (difficulty == 0 && valid_moves >= 6) break;
-        else if (difficulty == 1 && valid_moves >= 3) break;
-        else if (difficulty == 2) break;
-    } while (true);
+    } while (has_initial_match(board) || model_is_deadlock(board));
 
     place_stones_ice(board);
 
@@ -537,7 +519,7 @@ void model_refill_board(GameBoard *board)
 }
 
 /* ================================================================
- *  Gem swap  (swap → check → rollback if no match)
+ *  宝石交换
  * ================================================================ */
 
 bool model_swap_gems(GameBoard *board,
@@ -555,13 +537,13 @@ bool model_swap_gems(GameBoard *board,
     if (!((dr == 1 && dc == 0) || (dr == 0 && dc == 1)))
         return false;
 
-    /* Forbid swapping unmovable obstacles (stones and ice) */
+    /* 石块/冰块不可以移动 */
     if (board->board[r1][c1].is_stone || board->board[r2][c2].is_stone)
         return false;
     if (board->board[r1][c1].has_ice || board->board[r2][c2].has_ice)
         return false;
 
-    /* Perform swap */
+    /* 先交换 */
     Gem tmp              = board->board[r1][c1];
     board->board[r1][c1] = board->board[r2][c2];
     board->board[r2][c2] = tmp;
@@ -716,7 +698,7 @@ void model_trigger_bomb_chain(GameBoard *board, uint8_t row, uint8_t col)
     }
 }
 
-/* 封存档 */
+/* 撤销上一步 */
 bool model_undo_move(GameBoard *board)
 {
     if (!board || !board->undo_available)
@@ -755,7 +737,7 @@ bool model_undo_move(GameBoard *board)
     return true;
 }
 
-/* 状态读写 */
+/* 游戏状态读写 */
 
 GameState model_get_game_state(const GameBoard *board)
 {
@@ -908,19 +890,17 @@ int model_prop_hammer_smash(GameBoard *board, uint8_t row, uint8_t col) {
 
 bool model_prop_wand_swap(GameBoard *board, uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2) {
     if (!board) return false;
-    /* Bounds check before any array access */
     if (r1 >= BOARD_HEIGHT || c1 >= BOARD_WIDTH || r2 >= BOARD_HEIGHT || c2 >= BOARD_WIDTH) return false;
     if (board->board[r1][c1].is_stone || board->board[r2][c2].is_stone) return false;
     if (board->board[r1][c1].has_ice  || board->board[r2][c2].has_ice)  return false;
     if (board->board[r1][c1].gem_type == GEM_EMPTY || board->board[r2][c2].gem_type == GEM_EMPTY) return false;
     if (board->prop_wand_count == 0) return false;
 
-    /* Force swap */
+    /* 强制交换，不检查能不能消除 */
     Gem temp = board->board[r1][c1];
     board->board[r1][c1] = board->board[r2][c2];
     board->board[r2][c2] = temp;
 
-    /* Update logical coordinates and targets */
     board->board[r1][c1].row = r1;
     board->board[r1][c1].col = c1;
     board->board[r1][c1].target_x = gem_target_x(c1);
@@ -932,7 +912,7 @@ bool model_prop_wand_swap(GameBoard *board, uint8_t r1, uint8_t c1, uint8_t r2, 
     board->board[r2][c2].target_y = gem_target_y(r2);
 
     board->prop_wand_count--;
-    board->undo_available = false; /* 用了魔法棒就不能悔棋了 */
+    board->undo_available = false;
     return true;
 }
 

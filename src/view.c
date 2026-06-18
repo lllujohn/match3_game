@@ -13,7 +13,7 @@
 #include <math.h>
 
 /* ================================================================
- *  Colour palette  (Apple-inspired dark-mode Morandi system)
+ *  颜色色板配置
  * ================================================================ */
 
 static const SDL_Color kBgColor             = {20,  15,  45,  255};
@@ -27,7 +27,7 @@ static const SDL_Color kTextHintColor      = {200, 190, 230, 255};
 static const SDL_Color kMarkRingColor      = {255, 215, 0,   200};
 static const SDL_Color kDangerColor         = {255, 80,  110, 255};
 
-/* Morandi gem fill colours */
+/* 莫兰迪宝石填充色 */
 static const SDL_Color kGemFill[MAX_GEM_TYPES] = {
     {224, 108, 108, 255},  /* RED      */
     {86,  194, 155, 255},  /* MINT     */
@@ -38,7 +38,7 @@ static const SDL_Color kGemFill[MAX_GEM_TYPES] = {
     {255, 255, 255, 255},  /* WILDCARD */
 };
 
-/* Specular highlight (upper-third gloss) */
+/* 宝石上半部分的高光层 */
 static const SDL_Color kGemHighlight[MAX_GEM_TYPES] = {
     {255, 170, 170, 160},
     {160, 230, 210, 160},
@@ -49,27 +49,27 @@ static const SDL_Color kGemHighlight[MAX_GEM_TYPES] = {
     {255, 255, 255, 160},
 };
 
-/* Corner radii (pixels) */
+/* UI 倒角半径（像素） */
 #define GEM_CORNER_R   10
 #define BTN_CORNER_R   14
 #define PANEL_CORNER_R 18
 
 /* ================================================================
- *  View module private state
+ *  视图模块私有状态
  * ================================================================ */
 
 typedef struct {
     SDL_Window   *window;
     SDL_Renderer *renderer;
 
-    /* Font sizes used in the UI */
+    /* UI 各种字号 */
     TTF_Font     *font_hint;    /* ~13 px  */
     TTF_Font     *font_body;    /* ~18 px  */
     TTF_Font     *font_medium;  /* ~24 px  */
     TTF_Font     *font_large;   /* ~36 px  */
     TTF_Font     *font_title;   /* ~52 px  */
 
-    /* Sound effects */
+    /* 音效 */
     Mix_Chunk    *sfx_swap;
     Mix_Chunk    *sfx_match;
     Mix_Chunk    *sfx_error;
@@ -111,7 +111,7 @@ typedef struct {
 static ViewState g_view;
 
 /* ================================================================
- *  Particle System
+ *  粒子系统
  * ================================================================ */
 
 #define MAX_PARTICLES 200
@@ -129,13 +129,13 @@ typedef struct {
 static Particle g_particles[MAX_PARTICLES];
 
 /* ================================================================
- *  Font search — tries several paths in order
+ *  字体搜索 — 按顺序尝试加载
  * ================================================================ */
 
 static TTF_Font *load_font_any_path(int size)
 {
     static const char *PATHS[] = {
-        /* Bundled asset (preferred) */
+        /* 首选自带字体资源 */
         "assets/fonts/NotoSans-Regular.ttf",
         "assets/fonts/DejaVuSans.ttf",
         "../assets/fonts/NotoSans-Regular.ttf",
@@ -170,7 +170,7 @@ static TTF_Font *load_font_any_path(int size)
 }
 
 /* ================================================================
- *  Primitive drawing helpers
+ *  基础绘制图形函数
  * ================================================================ */
 
 static inline void set_color(SDL_Renderer *r, SDL_Color c)
@@ -183,9 +183,7 @@ static inline void set_blend(SDL_Renderer *r, SDL_BlendMode m)
     SDL_SetRenderDrawBlendMode(r, m);
 }
 
-/**
- * @brief Fill a circle using horizontal scanlines (Bresenham).
- */
+/* 逐行扫描填充圆形 */
 static void fill_circle(SDL_Renderer *r, int cx, int cy, int radius,
                          SDL_Color color)
 {
@@ -199,10 +197,7 @@ static void fill_circle(SDL_Renderer *r, int cx, int cy, int radius,
 }
 
 
-/**
- * @brief Draw a quarter circle outline using the midpoint algorithm.
- * @param quad  1=bottom-right, 2=bottom-left, 3=top-left, 4=top-right
- */
+/* 画四分之一圆（不填充） 1=右下, 2=左下, 3=左上, 4=右上 */
 static void draw_quarter_circle_outline(SDL_Renderer *r, int cx, int cy, int radius,
                                  SDL_Color color, int thickness, int quad)
 {
@@ -238,10 +233,7 @@ static void draw_quarter_circle_outline(SDL_Renderer *r, int cx, int cy, int rad
     }
 }
 
-/**
- * @brief Fill one quarter-circle.
- * @param quad  1=bottom-right, 2=bottom-left, 3=top-left, 4=top-right
- */
+/* 填充四分之一圆 */
 static void fill_quarter_circle(SDL_Renderer *r, int cx, int cy, int radius,
                                   int quad)
 {
@@ -274,7 +266,7 @@ static void fill_rounded_rect(SDL_Renderer *r, int x, int y, int w, int h,
         return;
     }
 
-    /* Centre + left + right strips */
+    /* 中间部分和左右两边矩形 */
     SDL_Rect rects[3] = {
         {x + cr, y,      w - 2 * cr, h     },
         {x,      y + cr, cr,          h - 2 * cr},
@@ -282,7 +274,7 @@ static void fill_rounded_rect(SDL_Renderer *r, int x, int y, int w, int h,
     };
     SDL_RenderFillRects(r, rects, 3);
 
-    /* Four corner quadrants */
+    /* 四个角的扇形 */
     fill_quarter_circle(r, x + cr,     y + cr,     cr, 3);
     fill_quarter_circle(r, x + w - cr, y + cr,     cr, 4);
     fill_quarter_circle(r, x + cr,     y + h - cr, cr, 2);
@@ -304,13 +296,13 @@ static void draw_rounded_rect_outline(SDL_Renderer *r, int x, int y,
         int ri = cr - t;
         if (ri < 1) ri = 1;
 
-        /* Four straight edges */
+        /* 四条直边 */
         SDL_RenderDrawLine(r, xi + ri, yi, xi + wi - ri, yi);
         SDL_RenderDrawLine(r, xi + ri, yi + hi, xi + wi - ri, yi + hi);
         SDL_RenderDrawLine(r, xi, yi + ri, xi, yi + hi - ri);
         SDL_RenderDrawLine(r, xi + wi, yi + ri, xi + wi, yi + hi - ri);
 
-        /* Four corners (arcs only — no fill) */
+        /* 四个角落（仅画弧线，不填充） */
         draw_quarter_circle_outline(r, xi + ri,      yi + ri,      ri, color, 1, 3);
         draw_quarter_circle_outline(r, xi + wi - ri, yi + ri,      ri, color, 1, 4);
         draw_quarter_circle_outline(r, xi + ri,      yi + hi - ri, ri, color, 1, 2);
@@ -326,7 +318,7 @@ void view_spawn_particles(float cx, float cy, uint8_t gem_type)
     
     SDL_Color c = kGemFill[gem_type];
     
-    for (int i = 0; i < 8; i++) { /* spawn 8 particles */
+    for (int i = 0; i < 8; i++) { /* 每次生成 8 个粒子 */
         for (int j = 0; j < MAX_PARTICLES; j++) {
             if (!g_particles[j].active) {
                 g_particles[j].active = true;
@@ -377,7 +369,7 @@ static void draw_text_centered(SDL_Renderer *r, TTF_Font *font,
     int tw, th;
     TTF_SizeUTF8(font, text, &tw, &th);
     
-    /* Simple drop shadow for better readability on complex backgrounds */
+    /* 加一点简单的文字阴影，让字体在复杂背景下能看得清 */
     SDL_Color shadow = {0, 0, 0, 150};
     draw_text(r, font, text, cx - tw / 2 + 2, cy - th / 2 + 2, shadow);
     
@@ -390,7 +382,7 @@ static void draw_text_centered(SDL_Renderer *r, TTF_Font *font,
 
 static inline float lerp(float cur, float tgt, float speed, float dt)
 {
-    /* Premium framerate-independent exponential ease-out */
+    /* 帧率无关的平滑插值过渡 */
     return tgt + (cur - tgt) * expf(-speed * dt);
 }
 
@@ -424,7 +416,7 @@ bool view_init_window(void)
         SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
     );
     if (!g_view.renderer) {
-        /* Fallback: software renderer */
+        /* 退回使用软件渲染兜底 */
         g_view.renderer = SDL_CreateRenderer(g_view.window, -1,
                                              SDL_RENDERER_SOFTWARE);
         if (!g_view.renderer) {
@@ -434,23 +426,23 @@ bool view_init_window(void)
     }
 
     SDL_RenderSetLogicalSize(g_view.renderer, WINDOW_WIDTH, WINDOW_HEIGHT);
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1"); /* bilinear filtering */
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1"); /* 启用双线性过滤 */
 
-    /* SDL2_ttf */
+    /* SDL2_ttf 初始化 */
     if (TTF_Init() == 0) {
         g_view.ttf_ok = true;
     } else {
         fprintf(stderr, "[view] TTF_Init failed: %s\n", TTF_GetError());
     }
 
-    /* SDL2_image */
+    /* SDL2_image 初始化 */
     if (IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG) {
         g_view.img_ok = true;
     } else {
         fprintf(stderr, "[view] IMG_Init failed: %s\n", IMG_GetError());
     }
 
-    /* SDL2_mixer */
+    /* SDL2_mixer 初始化 */
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) == 0) {
         g_view.mix_ok = true;
     } else {
@@ -546,7 +538,7 @@ static SDL_Texture *load_tex_fallback(const char *path)
 
 bool view_load_assets(void)
 {
-    /* Fonts — best-effort; NULL fonts cause text to be silently skipped */
+    /* 尽力加载字体；即使加载不到也没事，静默跳过文字渲染 */
     if (g_view.ttf_ok) {
         g_view.font_hint   = load_font_any_path(13);
         g_view.font_body   = load_font_any_path(18);
@@ -555,7 +547,7 @@ bool view_load_assets(void)
         g_view.font_title  = TTF_OpenFont("assets/fonts/SmileySans.ttf", 64);
     }
 
-    /* Sound effects — missing files are silently ignored */
+    /* 尽力加载音效；如果文件丢了就静默忽略，不报错阻断游戏 */
     if (g_view.mix_ok) {
         g_view.sfx_swap      = load_wav_fallback("assets/sounds/swap.wav");
         g_view.sfx_match     = load_wav_fallback("assets/sounds/match.mp3");
@@ -578,7 +570,7 @@ bool view_load_assets(void)
         g_view.tex_gem[2] = load_tex_fallback("assets/images/3.png");
         g_view.tex_gem[3] = load_tex_fallback("assets/images/4.png");
         g_view.tex_gem[4] = load_tex_fallback("assets/images/5.png");
-        g_view.tex_gem[5] = NULL; /* Not used if we only have 5 regular colors */
+        g_view.tex_gem[5] = NULL; /* 如果只有5种普通颜色就不加载 */
         g_view.tex_gem[GEM_WILDCARD] = load_tex_fallback("assets/images/6.png");
 
         g_view.tex_prop_hammer  = load_tex_fallback("assets/images/prop_hammer.png");
@@ -595,7 +587,8 @@ bool view_load_assets(void)
         g_view.tex_stone        = load_tex_fallback("assets/images/stone.png");
     }
 
-    return true; /* always succeed — missing assets degrade gracefully */
+    /* 初始化永远返回 true，缺资源会自动降级画方块，不卡玩家 */
+    return true;
 }
 
 bool view_has_badge(void)
@@ -727,7 +720,7 @@ void view_update_animations(GameBoard *board, float dt)
                 g->screen_y = g->target_y;
             }
 
-            /* Elimination shrink-to-zero */
+            /* 消除时的缩小动画 */
             if (g->is_marked_for_elimination) {
                 if (g->elim_scale > 0.01f) {
                     g->elim_scale = lerp(g->elim_scale, 0.0f, 10.0f, dt);
@@ -741,14 +734,14 @@ void view_update_animations(GameBoard *board, float dt)
 
     board->animations_settled = all_settled;
 
-    /* Tick down combo popup timer */
+    /* 连击弹窗倒计时 */
     if (board->combo_popup_timer > 0.0f) {
         board->combo_popup_timer -= dt;
         if (board->combo_popup_timer < 0.0f)
             board->combo_popup_timer = 0.0f;
     }
 
-    /* Update particles */
+    /* 更新粒子状态 */
     for (int i = 0; i < MAX_PARTICLES; i++) {
         if (g_particles[i].active) {
             g_particles[i].x += g_particles[i].vx * dt;
@@ -798,10 +791,10 @@ static void draw_gem(const Gem *g, bool is_selected)
         SDL_Rect dst = {x, y, w, h};
         SDL_RenderCopy(r, g_view.tex_gem[g->gem_type], NULL, &dst);
     } else {
-        /* Gem body fallback */
+        /* 图片缺失时降级画方块 */
         fill_rounded_rect(r, x, y, w, h, cr, kGemFill[g->gem_type]);
 
-        /* Specular highlight (upper-third ellipse) */
+        /* 宝石高光点 */
         if (scale > 0.5f) {
             SDL_Color hi_color = kGemHighlight[g->gem_type];
             int hw = w / 4;
@@ -810,7 +803,7 @@ static void draw_gem(const Gem *g, bool is_selected)
         }
     }
 
-    /* Ice Overlay */
+    /* 绘制冰块覆盖层 */
     if (g->has_ice) {
         if (g_view.tex_ice) {
             /* Make the ice slightly larger than the gem to wrap it completely */
@@ -825,7 +818,7 @@ static void draw_gem(const Gem *g, bool is_selected)
         }
     }
 
-    /* Bomb indicator */
+    /* 炸弹标记 */
     if (g->bomb_type != BOMB_NONE && scale > 0.5f) {
         set_color(r, (SDL_Color){255, 255, 255, 200});
         int b_cx = cx, b_cy = cy;
@@ -846,7 +839,7 @@ static void draw_gem(const Gem *g, bool is_selected)
         }
     }
 
-    /* Border & Selection Glow */
+    /* 边框和选中光环 */
     if (is_selected) {
         float time_sec = (float)SDL_GetTicks64() / 1000.0f;
         uint8_t glow_alpha = (uint8_t)(100 + 155 * fabsf(sinf(time_sec * 6.0f)));
@@ -860,7 +853,7 @@ static void draw_gem(const Gem *g, bool is_selected)
         }
     }
 
-    /* Elimination flash-ring */
+    /* 消除闪光圈 */
     if (g->is_marked_for_elimination) {
         draw_rounded_rect_outline(r, x - 1, y - 1, w + 2, h + 2,
                                   cr, kMarkRingColor, 2);
@@ -910,7 +903,7 @@ static void draw_info_panel(const GameBoard *board)
     draw_text_centered(r, g_view.font_large, buf, tx, ty, kTextPrimaryColor);
     ty += 40;
 
-    /* High score */
+    /* 最高分 */
     draw_text_centered(r, g_view.font_hint, "最高分", tx, ty, kTextHintColor);
     ty += 25;
     snprintf(buf, sizeof(buf), "%u", board->high_score);
@@ -940,7 +933,7 @@ static void draw_info_panel(const GameBoard *board)
     draw_text_centered(r, g_view.font_large, buf, tx, ty, moves_c);
     ty += 36;
 
-    /* Difficulty */
+    /* 难度显示 */
     static const char *DIFF_NAMES[] = {"简单", "普通", "困难"};
     int d = (board->difficulty >= 0 && board->difficulty <= 2) ? board->difficulty : 1;
     draw_text_centered(r, g_view.font_hint, "难度", tx, ty, kTextHintColor);
@@ -952,7 +945,7 @@ static void draw_info_panel(const GameBoard *board)
     SDL_RenderDrawLine(r, px + 10, ty, px + pw - 10, ty);
     ty += 20;
 
-    /* Key hints at bottom */
+    /* 底部按键提示 */
     draw_text_centered(r, g_view.font_hint, "S/L 存读  P/ESC 暂停", tx, ty, kTextHintColor);
     ty += 20;
     draw_text_centered(r, g_view.font_hint, "U 撤销    R 重来", tx, ty, kTextHintColor);
@@ -964,7 +957,7 @@ static void draw_info_panel(const GameBoard *board)
         draw_text_centered(r, g_view.font_body, buf, tx, ty, kAccentBlueColor);
     }
     
-    /* Props Row Under the Board */
+    /* 底部道具栏 */
     int props_y = BOARD_OFFSET_Y + BOARD_HEIGHT * GEM_SIZE + 24;
     int p_size = 50;
     int p_gap = 24;
@@ -1093,7 +1086,7 @@ void view_draw_game_ui_complete(const GameBoard *board)
 {
     draw_board_bg();
 
-    /* Draw all gems */
+    /* 绘制所有宝石 */
     for (int row = 0; row < BOARD_HEIGHT; row++) {
         for (int col = 0; col < BOARD_WIDTH; col++) {
             const Gem *g = &board->board[row][col];
@@ -1120,7 +1113,7 @@ void view_draw_game_ui_complete(const GameBoard *board)
         }
     }
 
-    /* Draw particles */
+    /* 绘制粒子 */
     SDL_Renderer *r = g_view.renderer;
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
     for (int i = 0; i < MAX_PARTICLES; i++) {
@@ -1136,7 +1129,7 @@ void view_draw_game_ui_complete(const GameBoard *board)
         }
     }
 
-    /* Combo pop-up overlay (renders above gems, below info panel) */
+    /* 连击弹出层 */
     draw_combo_popup(board);
 
     draw_info_panel(board);
@@ -1275,7 +1268,7 @@ void view_draw_pause_menu(const GameBoard *board)
 {
     SDL_Renderer *r = g_view.renderer;
 
-    /* Dark overlay */
+    /* 黑色半透明遮罩 */
     set_color(r, (SDL_Color){10, 10, 14, 210});
     set_blend(r, SDL_BLENDMODE_BLEND);
     SDL_Rect overlay = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
@@ -1315,7 +1308,7 @@ void view_draw_game_over_screen(const GameBoard *board)
     snprintf(buf, sizeof(buf), "最终得分: %u", board->score);
     draw_text_centered(r, g_view.font_medium, buf, cx, 190, kTextPrimaryColor);
 
-    // Max Combo
+    // 最高连击数
     snprintf(buf, sizeof(buf), "最高连击: x%u", board->max_combo_this_game);
     draw_text_centered(r, g_view.font_body, buf, cx, 230, kTextSecondaryColor);
 
@@ -1363,11 +1356,11 @@ bool view_render_frame(const GameBoard *board)
 
     SDL_Renderer *r = g_view.renderer;
 
-    /* Fill background */
+    /* 填充纯色背景兜底 */
     SDL_SetRenderDrawColor(r, kBgColor.r, kBgColor.g, kBgColor.b, kBgColor.a);
     SDL_RenderClear(r);
     
-    /* Draw background image based on game state */
+    /* 根据游戏状态绘制背景图片 */
     if (board->current_state == GAME_STATE_MAIN_MENU || 
         board->current_state == GAME_STATE_DIFFICULTY_SELECTION ||
         board->current_state == GAME_STATE_GAME_OVER ||
