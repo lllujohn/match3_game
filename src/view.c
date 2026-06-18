@@ -1351,7 +1351,8 @@ bool view_render_frame(const GameBoard *board)
     /* Draw background image based on game state */
     if (board->current_state == GAME_STATE_MAIN_MENU || 
         board->current_state == GAME_STATE_DIFFICULTY_SELECTION ||
-        board->current_state == GAME_STATE_GAME_OVER) {
+        board->current_state == GAME_STATE_GAME_OVER ||
+        board->current_state == GAME_STATE_RULES) {
         if (g_view.tex_bg_main) {
             SDL_RenderCopy(r, g_view.tex_bg_main, NULL, NULL);
         }
