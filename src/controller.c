@@ -165,24 +165,59 @@ static void handle_key_paused(GameBoard *board, SDL_Keycode key)
 
 static void handle_key_game_over(GameBoard *board, SDL_Keycode key)
 {
+    bool is_deadlock = model_is_deadlock(board);
+    int num_opts = is_deadlock ? 3 : 2;
+
     switch (key) {
         case SDLK_UP:
             board->highlighted_menu_option =
-                (board->highlighted_menu_option - 1 + 2) % 2;
+                (board->highlighted_menu_option - 1 + num_opts) % num_opts;
             break;
         case SDLK_DOWN:
             board->highlighted_menu_option =
-                (board->highlighted_menu_option + 1) % 2;
+                (board->highlighted_menu_option + 1) % num_opts;
             break;
         case SDLK_RETURN:
         case SDLK_KP_ENTER:
-            if (board->highlighted_menu_option == 0) {
-                board->current_state          = GAME_STATE_DIFFICULTY_SELECTION;
-                board->highlighted_difficulty = board->difficulty;
+            if (is_deadlock) {
+                if (board->highlighted_menu_option == 0) {
+                    /* Revive with shuffle */
+                    if (board->prop_shuffle_count > 0) {
+                        model_prop_shuffle(board);
+                        if (board->moves_remaining == 0) board->moves_remaining = 3;
+                        board->current_state = GAME_STATE_WAITING_INPUT;
+                        view_play_sound_effect("start");
+                    } else if (board->total_coins >= board->buy_prop_price) {
+                        board->total_coins -= board->buy_prop_price;
+                        board->prop_shuffle_count++;
+                        model_prop_shuffle(board);
+                        if (board->moves_remaining == 0) board->moves_remaining = 3;
+                        board->current_state = GAME_STATE_WAITING_INPUT;
+                        view_play_sound_effect("start");
+                    } else {
+                        view_play_sound_effect("error");
+                    }
+                    break;
+                }
+                
+                int opt = board->highlighted_menu_option - 1;
+                if (opt == 0) {
+                    board->current_state          = GAME_STATE_DIFFICULTY_SELECTION;
+                    board->highlighted_difficulty = board->difficulty;
+                } else if (opt == 1) {
+                    board->current_state           = GAME_STATE_MAIN_MENU;
+                    board->highlighted_menu_option = 0;
+                    view_set_bgm(0);
+                }
             } else {
-                board->current_state           = GAME_STATE_MAIN_MENU;
-                board->highlighted_menu_option = 0;
-                view_set_bgm(0);
+                if (board->highlighted_menu_option == 0) {
+                    board->current_state          = GAME_STATE_DIFFICULTY_SELECTION;
+                    board->highlighted_difficulty = board->difficulty;
+                } else {
+                    board->current_state           = GAME_STATE_MAIN_MENU;
+                    board->highlighted_menu_option = 0;
+                    view_set_bgm(0);
+                }
             }
             break;
         case SDLK_ESCAPE:
@@ -338,16 +373,38 @@ static void handle_mouse_game_over(GameBoard *board, int mx, int my)
 {
     int cx    = WINDOW_WIDTH / 2;
     int btn_y = 330;
+    
+    bool is_deadlock = model_is_deadlock(board);
+    int num_opts = is_deadlock ? 3 : 2;
 
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < num_opts; i++) {
         if (point_in_button(mx, my, cx, btn_y + i * 80, 280, 64)) {
-            if (i == 0) {
-                board->current_state          = GAME_STATE_DIFFICULTY_SELECTION;
-                board->highlighted_difficulty = board->difficulty;
+            if (is_deadlock && i == 0) {
+                if (board->prop_shuffle_count > 0) {
+                    model_prop_shuffle(board);
+                    if (board->moves_remaining == 0) board->moves_remaining = 3;
+                    board->current_state = GAME_STATE_WAITING_INPUT;
+                    view_play_sound_effect("start");
+                } else if (board->total_coins >= board->buy_prop_price) {
+                    board->total_coins -= board->buy_prop_price;
+                    board->prop_shuffle_count++;
+                    model_prop_shuffle(board);
+                    if (board->moves_remaining == 0) board->moves_remaining = 3;
+                    board->current_state = GAME_STATE_WAITING_INPUT;
+                    view_play_sound_effect("start");
+                } else {
+                    view_play_sound_effect("error");
+                }
             } else {
-                board->current_state           = GAME_STATE_MAIN_MENU;
-                board->highlighted_menu_option = 0;
-                view_set_bgm(0);
+                int opt = is_deadlock ? (i - 1) : i;
+                if (opt == 0) {
+                    board->current_state          = GAME_STATE_DIFFICULTY_SELECTION;
+                    board->highlighted_difficulty = board->difficulty;
+                } else {
+                    board->current_state           = GAME_STATE_MAIN_MENU;
+                    board->highlighted_menu_option = 0;
+                    view_set_bgm(0);
+                }
             }
         }
     }
@@ -821,20 +878,14 @@ bool controller_update_state_machine(GameBoard *board, float dt)
                     view_play_sound_effect("game_over");
                     controller_quick_save(board);
                 } else if (model_is_deadlock(board)) {
-                    /* 死局检测：直接免费洗牌（自动进行），不扣道具 */
-                    view_play_sound_effect("error"); /* 播放音效提示玩家遇到了死局 */
+                    /* 死局检测：直接死局！ */
+                    view_play_sound_effect("error");
                     
-                    bool shuffled = model_force_shuffle(board);
-                    
-                    if (!shuffled) {
-                        /* 彻底死局（怎么洗都不行），直接结束 */
-                        board->moves_remaining = 0;
-                    }
-                    
-                    /* 播放 DEAD END 动画，稍作停顿，此时棋盘已洗好，玩家能看到 "DEAD END" 字样 */
+                    /* 无论有没有剩余步数，进入 DEAD END 动画，之后跳转到游戏结束 */
                     board->current_state = GAME_STATE_DEAD_END_ANIM;
                     board->animation_duration = 2.0f;
                     board->state_timer = 0.0f;
+                    board->highlighted_menu_option = 0; // 重置菜单高亮
                 } else {
                     board->current_state = GAME_STATE_WAITING_INPUT;
                 }
@@ -882,9 +933,8 @@ bool controller_update_state_machine(GameBoard *board, float dt)
 
         case GAME_STATE_DEAD_END_ANIM:
             if (board->state_timer >= board->animation_duration) {
-                /* Settlement is already triggered because moves_remaining=0 will be caught by ELIMINATION_CHECK, 
-                   so we can just transition to ELIMINATION_CHECK to let it do the game over settlement. */
-                board->current_state = GAME_STATE_ELIMINATION_CHECK;
+                /* The user has reached a dead end. We transition directly to game over. */
+                board->current_state = GAME_STATE_GAME_OVER;
                 board->state_timer   = 0.0f;
                 changed = true;
             }

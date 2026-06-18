@@ -1322,8 +1322,26 @@ void view_draw_game_over_screen(const GameBoard *board)
     snprintf(buf, sizeof(buf), "使用道具: %u", board->used_props_total);
     draw_text_centered(r, g_view.font_body, buf, cx, 260, kTextSecondaryColor);
 
-    static const char *OPTS[] = {"再来一局", "返回主菜单"};
-    for (int i = 0; i < 2; i++) {
+    bool is_deadlock = model_is_deadlock((GameBoard*)board);
+    int num_opts = is_deadlock ? 3 : 2;
+    const char *OPTS[3];
+    int opt_idx = 0;
+
+    if (is_deadlock) {
+        if (board->prop_shuffle_count > 0) {
+            OPTS[opt_idx++] = "洗牌复活 (耗1道具)";
+        } else if (board->total_coins >= board->buy_prop_price) {
+            static char tbuf[64];
+            snprintf(tbuf, sizeof(tbuf), "洗牌复活 (耗%u金币)", board->buy_prop_price);
+            OPTS[opt_idx++] = tbuf;
+        } else {
+            OPTS[opt_idx++] = "洗牌复活 (资源不足)";
+        }
+    }
+    OPTS[opt_idx++] = "再来一局";
+    OPTS[opt_idx++] = "返回主菜单";
+
+    for (int i = 0; i < num_opts; i++) {
         bool sel = (i == board->highlighted_menu_option);
         draw_menu_button(cx, 330 + i * 80, 280, 64, OPTS[i], sel, NULL, false);
     }
