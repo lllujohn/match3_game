@@ -936,8 +936,8 @@ bool model_prop_wand_swap(GameBoard *board, uint8_t r1, uint8_t c1, uint8_t r2, 
     return true;
 }
 
-bool model_prop_shuffle(GameBoard *board) {
-    if (!board || board->prop_shuffle_count == 0) return false;
+bool model_force_shuffle(GameBoard *board) {
+    if (!board) return false;
 
     /* 只打乱宝石/炸弹类型，不碰 is_stone/has_ice 等位置相关字段 */
     Gem* gems[BOARD_WIDTH * BOARD_HEIGHT];
@@ -952,6 +952,7 @@ bool model_prop_shuffle(GameBoard *board) {
 
     if (count == 0) return false;
 
+    int attempts = 0;
     do {
         /* Fisher-Yates 洗牌，只交换颜色和炸弹类型 */
         for (int i = count - 1; i > 0; i--) {
@@ -963,11 +964,21 @@ bool model_prop_shuffle(GameBoard *board) {
             gems[j]->gem_type  = temp_type;
             gems[j]->bomb_type = temp_bomb;
         }
-    } while (has_initial_match(board));
+        attempts++;
+        if (attempts > 50) return false; /* 防死循环 */
+    } while (has_initial_match(board) || model_is_deadlock(board));
 
-    board->prop_shuffle_count--;
-    board->undo_available = false; /* 用了洗牌就不能悔棋了 */
+    board->undo_available = false; /* 打乱了就不能悔棋了 */
     return true;
+}
+
+bool model_prop_shuffle(GameBoard *board) {
+    if (!board || board->prop_shuffle_count == 0) return false;
+    if (model_force_shuffle(board)) {
+        board->prop_shuffle_count--;
+        return true;
+    }
+    return false;
 }
 
 bool model_prop_add_moves(GameBoard *board) {

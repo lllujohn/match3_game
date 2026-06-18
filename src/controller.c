@@ -821,30 +821,20 @@ bool controller_update_state_machine(GameBoard *board, float dt)
                     view_play_sound_effect("game_over");
                     controller_quick_save(board);
                 } else if (model_is_deadlock(board)) {
-                    /* Deadlock detected. We do not game over if they have resources to escape! */
-                    if (board->prop_shuffle_count == 0 && 
-                        board->prop_hammer_count == 0 && 
-                        board->prop_wand_count == 0 && 
-                        board->total_coins < board->buy_prop_price) {
-                        /* Try to auto-shuffle */
-                        bool shuffled = false;
-                        for (int i = 0; i < 10 && !shuffled; i++) {
-                            shuffled = model_prop_shuffle(board);
-                        }
-                        if (!shuffled) {
-                            /* Absolute deadlock */
-                            board->moves_remaining = 0;
-                            board->current_state = GAME_STATE_DEAD_END_ANIM;
-                            board->animation_duration = 3.0f;
-                            board->state_timer = 0.0f;
-                        } else {
-                            view_play_sound_effect("error"); /* Audio hint */
-                            board->current_state = GAME_STATE_WAITING_INPUT;
-                        }
-                    } else {
-                        view_play_sound_effect("error"); /* Give them an audio hint that the board is stuck */
-                        board->current_state = GAME_STATE_WAITING_INPUT;
+                    /* 死局检测：直接免费洗牌（自动进行），不扣道具 */
+                    view_play_sound_effect("error"); /* 播放音效提示玩家遇到了死局 */
+                    
+                    bool shuffled = model_force_shuffle(board);
+                    
+                    if (!shuffled) {
+                        /* 彻底死局（怎么洗都不行），直接结束 */
+                        board->moves_remaining = 0;
                     }
+                    
+                    /* 播放 DEAD END 动画，稍作停顿，此时棋盘已洗好，玩家能看到 "DEAD END" 字样 */
+                    board->current_state = GAME_STATE_DEAD_END_ANIM;
+                    board->animation_duration = 2.0f;
+                    board->state_timer = 0.0f;
                 } else {
                     board->current_state = GAME_STATE_WAITING_INPUT;
                 }

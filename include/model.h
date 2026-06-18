@@ -278,6 +278,8 @@ int model_prop_hammer_smash(GameBoard *board, uint8_t row, uint8_t col);
  */
 bool model_prop_wand_swap(GameBoard *board, uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2);
 
+bool model_force_shuffle(GameBoard *board);
+
 /**
  * @brief Shuffle prop: randomly shuffles all non-empty gems.
  * @param[in,out] board  Board to modify.
