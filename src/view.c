@@ -544,7 +544,7 @@ bool view_load_assets(void)
         g_view.font_body   = load_font_any_path(18);
         g_view.font_medium = load_font_any_path(24);
         g_view.font_large  = load_font_any_path(36);
-        g_view.font_title  = TTF_OpenFont("assets/fonts/SmileySans.ttf", 64);
+        g_view.font_title  = load_font_any_path(64);
     }
 
     /* 尽力加载音效；如果文件丢了就静默忽略，不报错阻断游戏 */
