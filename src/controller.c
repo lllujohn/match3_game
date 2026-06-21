@@ -41,12 +41,6 @@ static bool point_in_button(int px, int py, int cx, int y, int w, int h)
            py >= y          && py <= y + h;
 }
 
-/* 把"是否死局"的判断结果缓存到 board 里，避免同帧多次全盘扫描 */
-static bool deadlock_cached(GameBoard *board)
-{
-    return model_is_deadlock(board);
-}
-
 /* 死局复活逻辑：消耗一张洗牌道具（或用金币购买）来复活，成功返回 true */
 static bool try_revive_from_deadlock(GameBoard *board)
 {
@@ -183,7 +177,7 @@ static void handle_key_paused(GameBoard *board, SDL_Keycode key)
 
 static void handle_key_game_over(GameBoard *board, SDL_Keycode key)
 {
-    bool is_dead = deadlock_cached(board);
+    bool is_dead = model_is_deadlock(board);
     int  num_opts = is_dead ? 3 : 2;
 
     switch (key) {
@@ -363,7 +357,7 @@ static void handle_mouse_game_over(GameBoard *board, int mx, int my)
 {
     int  cx       = WINDOW_WIDTH / 2;
     int  btn_y    = 330;
-    bool is_dead  = deadlock_cached(board);
+    bool is_dead  = model_is_deadlock(board);
     int  num_opts = is_dead ? 3 : 2;
 
     for (int i = 0; i < num_opts; i++) {

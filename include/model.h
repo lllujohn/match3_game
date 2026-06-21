@@ -226,20 +226,6 @@ bool model_save_game(const GameBoard *board, const char *filename);
  */
 bool model_load_game(GameBoard *board, const char *filename);
 
-/* ================================================================
- *  State accessors
- * ================================================================ */
-
-/** @brief Read the current FSM state. */
-GameState model_get_game_state(const GameBoard *board);
-
-/** @brief Directly set the FSM state (use with caution). */
-void model_set_game_state(GameBoard *board, GameState state);
-
-/* ================================================================
- *  Hint system
- * ================================================================ */
-
 /**
  * @brief Find the best available move (highest-scoring swap).
  *

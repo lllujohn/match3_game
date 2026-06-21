@@ -84,21 +84,17 @@ typedef struct {
 
     SDL_Texture  *tex_nuist_badge;
     SDL_Texture  *tex_gem[MAX_GEM_TYPES];
-    
+
     SDL_Texture  *tex_prop_hammer;
     SDL_Texture  *tex_prop_wand;
     SDL_Texture  *tex_prop_shuffle;
     SDL_Texture  *tex_prop_moves;
-    
-    SDL_Texture  *tex_hammer;
-    SDL_Texture  *tex_wand;
+
     SDL_Texture  *tex_sandglass;
     SDL_Texture  *tex_ice;
     SDL_Texture  *tex_dead_end;
-    
     SDL_Texture  *tex_bg;
     SDL_Texture  *tex_bg_main;
-    
     SDL_Texture  *tex_stone;
 
     bool          sdl_ok;
@@ -251,9 +247,7 @@ static void fill_quarter_circle(SDL_Renderer *r, int cx, int cy, int radius,
     }
 }
 
-/**
- * @brief Fill a rounded rectangle (no border).
- */
+/* 填充圆角矩形（无边框） */
 static void fill_rounded_rect(SDL_Renderer *r, int x, int y, int w, int h,
                                int cr, SDL_Color color)
 {
@@ -281,9 +275,7 @@ static void fill_rounded_rect(SDL_Renderer *r, int x, int y, int w, int h,
     fill_quarter_circle(r, x + w - cr, y + h - cr, cr, 1);
 }
 
-/**
- * @brief Draw a rounded rectangle outline.
- */
+/* 画圆角矩形边框 */
 static void draw_rounded_rect_outline(SDL_Renderer *r, int x, int y,
                                        int w, int h, int cr,
                                        SDL_Color color, int thickness)
@@ -337,8 +329,7 @@ void view_spawn_particles(float cx, float cy, uint8_t gem_type)
 }
 
 /* ================================================================
- *  Global getters===
- *  Text rendering
+ *  文字渲染
  * ================================================================ */
 
 static void draw_text(SDL_Renderer *r, TTF_Font *font, const char *text,
@@ -376,18 +367,14 @@ static void draw_text_centered(SDL_Renderer *r, TTF_Font *font,
     draw_text(r, font, text, cx - tw / 2, cy - th / 2, color);
 }
 
-/* ================================================================
- *  Lerp helper
- * ================================================================ */
-
+/* 帧率无关的平滑插值 */
 static inline float lerp(float cur, float tgt, float speed, float dt)
 {
-    /* 帧率无关的平滑插值过渡 */
     return tgt + (cur - tgt) * expf(-speed * dt);
 }
 
 /* ================================================================
- *  Lifecycle
+ *  窗口初始化与销毁
  * ================================================================ */
 
 bool view_init_window(void)
@@ -623,7 +610,7 @@ void view_unload_assets(void)
 }
 
 /* ================================================================
- *  Audio
+ *  音效
  * ================================================================ */
 
 void view_play_sound_effect(const char *sound_name)
@@ -660,7 +647,7 @@ void view_set_bgm(int state)
 }
 
 /* ================================================================
- *  Utility
+ *  杂项工具
  * ================================================================ */
 
 void view_set_window_title(const char *title)
@@ -680,7 +667,7 @@ bool view_all_gems_settled(const GameBoard *board)
 }
 
 /* ================================================================
- *  Animation update  (Lerp each gem toward its target)
+ *  动画更新（每帧让宝石向目标坐标靠拢）
  * ================================================================ */
 
 void view_update_animations(GameBoard *board, float dt)
@@ -755,7 +742,7 @@ void view_update_animations(GameBoard *board, float dt)
 }
 
 /* ================================================================
- *  Gem rendering
+ *  宝石绘制
  * ================================================================ */
 
 static void draw_gem(const Gem *g, bool is_selected)
@@ -806,11 +793,9 @@ static void draw_gem(const Gem *g, bool is_selected)
     /* 绘制冰块覆盖层 */
     if (g->has_ice) {
         if (g_view.tex_ice) {
-            /* Make the ice slightly larger than the gem to wrap it completely */
             SDL_Rect dst = {x - 6, y - 6, w + 12, h + 12};
-            /* Lower transparency further to let the gem color show through clearly */
             SDL_SetTextureBlendMode(g_view.tex_ice, SDL_BLENDMODE_BLEND);
-            SDL_SetTextureAlphaMod(g_view.tex_ice, 130);
+            SDL_SetTextureAlphaMod(g_view.tex_ice, 130); /* 半透明，能看到下面的宝石 */
             SDL_RenderCopy(r, g_view.tex_ice, NULL, &dst);
         } else {
             fill_rounded_rect(r, x, y, w, h, cr, (SDL_Color){173, 216, 230, 128});
@@ -848,9 +833,6 @@ static void draw_gem(const Gem *g, bool is_selected)
         draw_rounded_rect_outline(r, x, y, w, h, cr, (SDL_Color){255, 255, 255, 255}, 3);
     } else {
         draw_rounded_rect_outline(r, x, y, w, h, cr, kPanelBorderColor, 1);
-        if (is_selected) {
-            draw_rounded_rect_outline(r, x - 2, y - 2, w + 4, h + 4, cr, kMarkRingColor, 2);
-        }
     }
 
     /* 消除闪光圈 */
@@ -860,9 +842,7 @@ static void draw_gem(const Gem *g, bool is_selected)
     }
 }
 
-/* ================================================================
- *  Board background grid
- * ================================================================ */
+/* 棋盘背景（目前透明，宝石直接画在背景图上） */
 
 static void draw_board_bg(void)
 {

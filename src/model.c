@@ -97,20 +97,15 @@ Gem model_generate_gem(GameBoard *board, uint8_t row, uint8_t col, bool offscree
     return gem;
 }
 
-/* 初始化棋盘（游戏第一次启动时用，停在主菜单界面） */
 bool model_init_board(GameBoard *board)
 {
     if (!board)
         return false;
 
     memset(board, 0, sizeof(GameBoard));
-    board->current_state          = GAME_STATE_MAIN_MENU;
-    board->highlighted_menu_option = 0;
-    board->score              = 0;
-    board->level              = 1;
-    board->moves_remaining    = DEFAULT_MOVES;
-    board->first_gem_selected = false;
-    board->combo_multiplier   = 1;
+    board->current_state     = GAME_STATE_MAIN_MENU;
+    board->moves_remaining   = DEFAULT_MOVES;
+    board->combo_multiplier  = 1;
     board->animations_settled = true;
 
     /* 一直重新生成，直到初始棋盘上没有现成的消除 */
@@ -153,7 +148,7 @@ static void apply_difficulty_configs(GameBoard *board) {
         board->target_score = 8000;
         board->max_props_per_game = 3;
         board->max_sandglass_per_game = 1;
-        board->hint_trigger_time = 999999.0f; // effectively no hints
+        board->hint_trigger_time = 999999.0f; /* 困难模式不给提示 */
         board->wildcard_prob = 0.02f;
         board->buy_prop_price = 400;
         board->moves_remaining = HARD_MOVES + (board->consecutive_fails_hard >= 2 ? 1 : 0);
@@ -769,19 +764,6 @@ bool model_undo_move(GameBoard *board)
     return true;
 }
 
-/* 游戏状态读写 */
-
-GameState model_get_game_state(const GameBoard *board)
-{
-    return board ? board->current_state : GAME_STATE_GAME_OVER;
-}
-
-void model_set_game_state(GameBoard *board, GameState state)
-{
-    if (board)
-        board->current_state = state;
-}
-
 bool model_is_adjacent(const GameBoard *board, uint8_t row, uint8_t col)
 {
     if (!board || !board->first_gem_selected)
@@ -856,8 +838,7 @@ bool model_load_game(GameBoard *board, const char *filename)
     return ok;
 }
 
-/* 提示：遍历所有可走的步，找出能消除最多宝石的一步 */
-
+/* 遍历所有可走的步，找出能消除最多宝石的一步 */
 bool model_find_best_hint(GameBoard *board,
                           uint8_t *hr, uint8_t *hc, uint8_t *hd)
 {
@@ -876,7 +857,7 @@ bool model_find_best_hint(GameBoard *board,
                     best_pts = pts;
                     *hr = (uint8_t)r;
                     *hc = (uint8_t)c;
-                    *hd = 0; /* right */
+                    *hd = 0; /* 右 */
                     found = true;
                 }
             }
@@ -887,7 +868,7 @@ bool model_find_best_hint(GameBoard *board,
                     best_pts = pts;
                     *hr = (uint8_t)r;
                     *hc = (uint8_t)c;
-                    *hd = 1; /* down */
+                    *hd = 1; /* 下 */
                     found = true;
                 }
             }
@@ -895,8 +876,6 @@ bool model_find_best_hint(GameBoard *board,
     }
     return found;
 }
-
-/* 道具 */
 
 /* 锤子：打一下选中的格子；有冰先碎冰，宝石/石块直接消除 */
 /* 返回 0=失败，1=只打了冰，2=消除了宝石/石块 */
