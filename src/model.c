@@ -377,7 +377,7 @@ void model_apply_eliminations(GameBoard *board)
             if (board->board[r][c].has_ice) {
                 board->board[r][c].has_ice = false;
                 board->board[r][c].is_marked_for_elimination = false;
-                board->board[r][c].elim_scale = 1.0f; /* 恢复宝石的显示！ */
+                board->board[r][c].elim_scale = 1.0f;
                 continue;
             }
 
@@ -390,14 +390,18 @@ void model_apply_eliminations(GameBoard *board)
                 board->board[r][c].bomb_type              = BOMB_NONE;
                 board->board[r][c].next_bomb_type         = BOMB_NONE;
                 board->board[r][c].next_gem_type_override = 0;
+                board->board[r][c].elim_scale             = 1.0f;
             } else if (board->board[r][c].next_bomb_type != BOMB_NONE) {
                 /* 4连消：原地留一颗炸弹 */
                 board->board[r][c].gem_type       = (uint8_t)(rand() % 5);
                 board->board[r][c].bomb_type      = board->board[r][c].next_bomb_type;
                 board->board[r][c].next_bomb_type = BOMB_NONE;
+                board->board[r][c].elim_scale     = 1.0f;
             } else {
-                board->board[r][c].gem_type  = GEM_EMPTY;
-                board->board[r][c].bomb_type = BOMB_NONE;
+                /* 普通消除：清空格子，让重力填充 */
+                board->board[r][c].gem_type   = GEM_EMPTY;
+                board->board[r][c].bomb_type  = BOMB_NONE;
+                board->board[r][c].elim_scale = 1.0f;
             }
         }
     }
@@ -412,22 +416,27 @@ bool model_apply_gravity(GameBoard *board)
     bool moved = false;
 
     for (int c = 0; c < BOARD_WIDTH; c++) {
+        /* 从底部开始，找每列的第一个可写入位置 */
         int write_row = BOARD_HEIGHT - 1;
 
         for (int r = BOARD_HEIGHT - 1; r >= 0; r--) {
+            /* 石块是永久障碍，挡住所有宝石下落 */
             if (board->board[r][c].is_stone) {
-                if (write_row == r) write_row = r - 1; 
+                /* 无条件把写入位置重置到石块正上方 */
+                write_row = r - 1;
                 continue;
             }
-            /* 带冰且有宝石的格子也当地板处理 */
+            /* 带冰且格子里有宝石：冰格相当于地板，宝石不能移动 */
             if (board->board[r][c].has_ice && board->board[r][c].gem_type != (uint8_t)GEM_EMPTY) {
-                if (write_row == r) write_row = r - 1;
+                /* 无条件把写入位置重置到冰格正上方 */
+                write_row = r - 1;
                 continue;
             }
 
+            /* 普通宝石：尽量往 write_row 靠 */
             if (board->board[r][c].gem_type != (uint8_t)GEM_EMPTY) {
                 if (write_row != r) {
-                    /* 目标格可能本身带冰，移动时要把冰的状态传过去 */
+                    /* 目标格可能本身带冰（空冰格），保留冰的属性 */
                     bool dest_has_ice = board->board[write_row][c].has_ice;
 
                     board->board[write_row][c]          = board->board[r][c];
@@ -437,83 +446,105 @@ bool model_apply_gravity(GameBoard *board)
                     board->board[write_row][c].target_y = gem_target_y((uint8_t)write_row);
                     board->board[write_row][c].has_ice  = dest_has_ice;
 
-                    /* 清空源格子，注意不能留下 has_ice=true 的孤儿格 */
+                    /* 清空来源格，保留 has_ice 标记（冰格本身还在，只是宝石走了） */
+                    bool src_had_ice = board->board[r][c].has_ice;
                     memset(&board->board[r][c], 0, sizeof(Gem));
                     board->board[r][c].gem_type   = (uint8_t)GEM_EMPTY;
                     board->board[r][c].row        = (uint8_t)r;
                     board->board[r][c].col        = (uint8_t)c;
-                    board->board[r][c].elim_scale = 0.0f;
+                    board->board[r][c].elim_scale = 1.0f;
+                    board->board[r][c].has_ice    = src_had_ice; /* 空冰格保留冰属性 */
 
                     moved = true;
                 }
                 write_row--;
             }
+            /* 空格：跳过，write_row 不变，下一颗宝石会落到这里 */
         }
     }
     return moved;
 }
 
-/* 填充：在空格上方生成新宝石并让它掉下来 */
+/* 填充：把棋盘上所有空格都填满宝石，让它们从上方掉落 */
 void model_refill_board(GameBoard *board)
 {
     if (!board)
         return;
 
     bool refilled = false;
-    bool changed;
-    int spawn_counts[BOARD_WIDTH] = {0};
 
-    do {
-        changed = false;
-        for (int r = 0; r < BOARD_HEIGHT; r++) {
-            for (int c = 0; c < BOARD_WIDTH; c++) {
-                if (board->board[r][c].is_stone) continue;
+    /* 第一步：先把现有宝石都用重力沉到底部 */
+    {
+        bool moved;
+        do {
+            moved = model_apply_gravity(board);
+        } while (moved);
+    }
 
-                /* 第0行是入口；紧贴石块/冰块下方的格子也是入口（因为上方被堵死了） */
-                bool is_spawner = (r == 0) || 
-                                  (r > 0 && board->board[r-1][c].is_stone) ||
-                                  (r > 0 && board->board[r-1][c].has_ice && board->board[r-1][c].gem_type != (uint8_t)GEM_EMPTY);
+    /*
+     * 第二步：逐列、逐区段填充。
+     * 石块把每列分成多个独立区段，每个区段单独处理。
+     * 经过第一步重力后，现有宝石已经挤在区段底部，上方是空格。
+     * 直接从顶部往下找空格，一一生成新宝石。
+     */
+    for (int c = 0; c < BOARD_WIDTH; c++) {
+        int seg_top   = 0;
+        int spawn_off = 0;   /* 错开起始高度用的计数 */
 
-                if (is_spawner && board->board[r][c].gem_type == GEM_EMPTY) {
-                    bool had_ice = board->board[r][c].has_ice;
-                    board->board[r][c] = model_generate_gem(board, (uint8_t)r, (uint8_t)c, true);
-                    board->board[r][c].has_ice = had_ice;
-                    /* 多颗宝石错开起始高度，产生瀑布式掉落效果 */
-                    board->board[r][c].screen_y = (float)(BOARD_OFFSET_Y - GEM_SIZE * (1 + spawn_counts[c]));
-                    spawn_counts[c]++;
+        for (int r = 0; r <= BOARD_HEIGHT; r++) {
+            bool end_of_col = (r == BOARD_HEIGHT);
+            bool hit_stone  = (!end_of_col && board->board[r][c].is_stone);
+
+            if (hit_stone || end_of_col) {
+                /* 当前区段 [seg_top, r-1]，找所有空格并填入新宝石 */
+                for (int rr = seg_top; rr < r; rr++) {
+                    if (board->board[rr][c].is_stone) continue;
+                    if (board->board[rr][c].has_ice &&
+                        board->board[rr][c].gem_type != (uint8_t)GEM_EMPTY) continue;
+                    if (board->board[rr][c].gem_type != (uint8_t)GEM_EMPTY) continue;
+
+                    bool had_ice = board->board[rr][c].has_ice;
+                    board->board[rr][c] = model_generate_gem(board, (uint8_t)rr, (uint8_t)c, true);
+                    board->board[rr][c].has_ice = had_ice;
+
+                    /* 让新宝石从本区段上方某高度掉落，视觉上像瀑布 */
+                    float base_y = (seg_top > 0)
+                        ? (float)((int)board->board[seg_top - 1][c].target_y - GEM_SIZE)
+                        : (float)(BOARD_OFFSET_Y - GEM_SIZE);
+                    board->board[rr][c].screen_y = base_y - (float)(GEM_SIZE * (1 + spawn_off));
+                    spawn_off++;
                     refilled = true;
-                    changed  = true;
                 }
+
+                /* 区段切换 */
+                seg_top   = r + 1;
+                spawn_off = 0;
             }
         }
-        /* 让刚生成的宝石先落下去，腾出入口格，以便下一轮继续生成 */
-        if (model_apply_gravity(board)) {
-            changed = true;
-        }
-    } while (changed);
+    }
 
-/* 兜底填充：处理石块/冰块同时消除等边界情况导致的孤立空洞 */
+    /* 第三步：兜底再跑一遍重力（让新宝石落到正确位置） */
+    if (refilled) {
+        bool moved;
+        do {
+            moved = model_apply_gravity(board);
+        } while (moved);
+        board->animations_settled = false;
+    }
+
+    /* 第四步：极端兜底——如果还有空格（冰格边界等特殊情况），就地填充 */
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c < BOARD_WIDTH; c++) {
             if (!board->board[r][c].is_stone &&
                 board->board[r][c].gem_type == (uint8_t)GEM_EMPTY) {
                 bool had_ice = board->board[r][c].has_ice;
-                board->board[r][c] = model_generate_gem(board, (uint8_t)r, (uint8_t)c, true);
-                board->board[r][c].has_ice = had_ice;
-                board->board[r][c].screen_y = (float)(BOARD_OFFSET_Y - GEM_SIZE * (1 + r));
+                board->board[r][c] = model_generate_gem(board, (uint8_t)r, (uint8_t)c, false);
+                board->board[r][c].has_ice    = had_ice;
+                board->board[r][c].elim_scale = 1.0f;
                 refilled = true;
             }
         }
     }
-
-    /* 兜底填充后再跑一次重力，防止新宝石悬空 */
-    if (refilled) {
-        bool gravity_moved;
-        do {
-            gravity_moved = model_apply_gravity(board);
-        } while (gravity_moved);
-    }
-
     if (refilled) {
         board->animations_settled = false;
     }

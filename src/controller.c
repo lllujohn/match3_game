@@ -925,3 +925,5 @@ int controller_get_difficulty(void)
 {
     return g_ctrl.difficulty;
 }
+
+

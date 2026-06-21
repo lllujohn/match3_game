@@ -1091,8 +1091,17 @@ void view_draw_game_ui_complete(const GameBoard *board)
         for (int col = 0; col < BOARD_WIDTH; col++) {
             const Gem *g = &board->board[row][col];
             uint8_t t = g->gem_type;
+
+            /* 石块是特殊情况：gem_type 是 GEM_EMPTY(255)，但要画石块图 */
+            if (g->is_stone) {
+                draw_gem(g, false);
+                continue;
+            }
+
+            /* 空格不画 */
             if (t >= MAX_GEM_TYPES)
                 continue;
+
             bool sel = board->first_gem_selected &&
                        row == board->selected_row &&
                        col == board->selected_col;
