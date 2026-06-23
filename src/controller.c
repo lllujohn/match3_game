@@ -246,14 +246,7 @@ static void handle_key_in_game(GameBoard *board, SDL_Keycode key)
             board->current_state          = GAME_STATE_DIFFICULTY_SELECTION;
             board->highlighted_difficulty = board->difficulty;
             break;
-        case SDLK_u:
-            if (model_undo_move(board)) {
-                board->current_state      = GAME_STATE_SWAP_ANIMATING;
-                board->state_timer        = 0.0f;
-                board->animation_duration = 0.35f;
-                board->animations_settled = false;
-            }
-            break;
+
         default:
             break;
     }
@@ -538,7 +531,6 @@ static void handle_mouse_in_game(GameBoard *board, int mx, int my)
         if (model_is_adjacent(board, row, col)) {
             if (model_prop_wand_swap(board, board->selected_row, board->selected_col, row, col)) {
                 board->used_props_total++;
-                board->undo_available     = false;
                 board->first_gem_selected = false;
                 board->current_state      = GAME_STATE_SWAP_ANIMATING;
                 board->state_timer        = 0.0f;
@@ -566,25 +558,17 @@ static void handle_mouse_in_game(GameBoard *board, int mx, int my)
     }
 
     if (model_is_adjacent(board, row, col)) {
-        board->undo_r1    = board->selected_row;
-        board->undo_c1    = board->selected_col;
-        board->undo_r2    = row;
-        board->undo_c2    = col;
-        board->undo_score = board->score;
-        board->undo_combo = board->combo_multiplier;
 
         bool swapped = model_swap_gems(board, board->selected_row, board->selected_col, row, col);
         board->first_gem_selected = false;
 
         if (swapped) {
-            board->undo_available     = true;
             board->current_state      = GAME_STATE_SWAP_ANIMATING;
             board->state_timer        = 0.0f;
             board->animation_duration = 0.35f;
             board->animations_settled = false;
             view_play_sound_effect("swap");
         } else {
-            board->undo_available     = false;
             board->current_state      = GAME_STATE_SWAP_FAIL_ANIMATING;
             board->state_timer        = 0.0f;
             board->animation_duration = 0.25f;
@@ -919,5 +903,4 @@ int controller_get_difficulty(void)
 {
     return g_ctrl.difficulty;
 }
-
 

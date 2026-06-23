@@ -10,10 +10,6 @@
 #include <stdint.h>
 #include <time.h>
 
-/* ================================================================
- *  Minimal Test Framework
- * ================================================================ */
-
 static int g_tests_run    = 0;
 static int g_tests_passed = 0;
 static int g_tests_failed = 0;
@@ -45,11 +41,7 @@ static int g_tests_failed = 0;
         _prev_failed = g_tests_failed;                            \
     } while (0)
 
-/* ================================================================
- *  Board construction helpers
- * ================================================================ */
-
-/** Fill the entire board with a single gem type. */
+/* Fill the entire board with a single gem type. */
 static void fill_board_uniform(GameBoard *b, uint8_t gem_type) {
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c < BOARD_WIDTH; c++) {
@@ -66,7 +58,7 @@ static void fill_board_uniform(GameBoard *b, uint8_t gem_type) {
     }
 }
 
-/** Fill board with alternating two types so no 3-match exists. */
+/* Fill board with alternating two types so no 3-match exists. */
 static void fill_board_checkerboard(GameBoard *b) {
     for (int r = 0; r < BOARD_HEIGHT; r++) {
         for (int c = 0; c < BOARD_WIDTH; c++) {
@@ -78,10 +70,6 @@ static void fill_board_checkerboard(GameBoard *b) {
         }
     }
 }
-
-/* ================================================================
- *  Test Group 1: model_init_board
- * ================================================================ */
 
 static void test_init_board_no_null(void) {
     GameBoard b;
@@ -140,10 +128,6 @@ static void test_init_board_bad_difficulty_rejected(void) {
     bool ok = model_init_board_with_difficulty(&b, 99);
     TEST_ASSERT_FALSE(ok, "Difficulty 99 must be rejected");
 }
-
-/* ================================================================
- *  Test Group 2: model_check_eliminations
- * ================================================================ */
 
 static void test_elimination_horizontal_3(void) {
     GameBoard b;
@@ -245,10 +229,6 @@ static void test_elimination_full_board_match(void) {
     (void)pts;
 }
 
-/* ================================================================
- *  Test Group 3: model_apply_gravity
- * ================================================================ */
-
 static void test_gravity_drops_gems(void) {
     GameBoard b;
     memset(&b, 0, sizeof(b));
@@ -308,10 +288,6 @@ static void test_gravity_single_gem_at_top(void) {
     }
 }
 
-/* ================================================================
- *  Test Group 4: model_swap_gems
- * ================================================================ */
-
 static void test_swap_valid_creates_match(void) {
     GameBoard b;
     memset(&b, 0, sizeof(b));
@@ -366,10 +342,6 @@ static void test_swap_out_of_bounds_rejected(void) {
     TEST_ASSERT_FALSE(swapped, "Out-of-bounds swap must be rejected");
 }
 
-/* ================================================================
- *  Test Group 5: model_apply_eliminations
- * ================================================================ */
-
 static void test_apply_eliminations_clears_marked(void) {
     GameBoard b;
     memset(&b, 0, sizeof(b));
@@ -389,10 +361,6 @@ static void test_apply_eliminations_clears_marked(void) {
                           "Eliminated cells must clear is_marked_for_elimination");
     }
 }
-
-/* ================================================================
- *  Test Group 6: model_is_deadlock
- * ================================================================ */
 
 static void test_deadlock_detects_no_moves(void) {
     /* A checkerboard with alternating RED/BLUE has no valid swap. */
@@ -418,10 +386,6 @@ static void test_deadlock_not_triggered_with_valid_move(void) {
     }
     /* If has_hint is false, skip (edge case: extremely unlikely on a fresh board). */
 }
-
-/* ================================================================
- *  Test Group 7: model_find_best_hint
- * ================================================================ */
 
 static void test_hint_returns_valid_move(void) {
     /* Build a board where we know a move exists. */
@@ -457,10 +421,6 @@ static void test_hint_null_args_rejected(void) {
     TEST_ASSERT_FALSE(r4, "NULL hd must be rejected by hint");
 }
 
-/* ================================================================
- *  Test Group 8: model_refill_board
- * ================================================================ */
-
 static void test_refill_fills_empty_cells(void) {
     GameBoard b;
     memset(&b, 0, sizeof(b));
@@ -491,10 +451,6 @@ static void test_refill_does_not_overwrite_existing(void) {
                    "refill_board must not overwrite non-empty gems (and gravity applies)");
 }
 
-/* ================================================================
- *  Test Group 9: model_screen_to_board_coord
- * ================================================================ */
-
 static void test_screen_to_board_valid(void) {
     /* Click at exact top-left of cell (0,0) */
     uint8_t row, col;
@@ -519,10 +475,6 @@ static void test_screen_to_board_last_cell(void) {
     TEST_ASSERT_EQ(row, (uint8_t)(BOARD_HEIGHT - 1), "Last cell row mismatch");
     TEST_ASSERT_EQ(col, (uint8_t)(BOARD_WIDTH  - 1), "Last cell col mismatch");
 }
-
-/* ================================================================
- *  Test Group 10: model_check_eliminations_advanced (combo)
- * ================================================================ */
 
 static void test_advanced_elim_combo_multiplier(void) {
     GameBoard b;
@@ -552,10 +504,6 @@ static void test_advanced_elim_combo_multiplier(void) {
 
     TEST_ASSERT_EQ(pts_advanced, pts_base * 3, "Advanced elimination must apply combo multiplier");
 }
-
-/* ================================================================
- *  Test Group 11: model_trigger_bomb_chain
- * ================================================================ */
 
 static void test_bomb_line_h_clears_row(void) {
     GameBoard b;
@@ -626,10 +574,6 @@ static void test_bomb_radius_clears_3x3(void) {
                       "BOMB_RADIUS must not mark cells outside 3x3 radius");
 }
 
-/* ================================================================
- *  Test Group 12: model_save_game / model_load_game (roundtrip)
- * ================================================================ */
-
 static void test_save_load_roundtrip(void) {
     const char *tmp = "match3_test_save.dat";
 
@@ -674,57 +618,6 @@ static void test_load_corrupt_file_rejected(void) {
     remove(tmp); /* Clean up */
 }
 
-/* ================================================================
- *  Test Group 13: model_undo_move
- * ================================================================ */
-
-static void test_undo_not_available_initially(void) {
-    GameBoard b;
-    model_init_board(&b);
-    bool ok = model_undo_move(&b);
-    TEST_ASSERT_FALSE(ok, "Undo must fail when no swap has been made");
-}
-
-static void test_undo_restores_gem_positions(void) {
-    /* Build a board with a known valid swap */
-    GameBoard b;
-    memset(&b, 0, sizeof(b));
-    fill_board_checkerboard(&b);
-
-    b.board[0][0].gem_type = GEM_RED;
-    b.board[0][1].gem_type = GEM_RED;
-    b.board[0][2].gem_type = GEM_BLUE;
-    b.board[0][3].gem_type = GEM_RED;
-
-    uint8_t type_before_02 = b.board[0][2].gem_type;  /* BLUE */
-    uint8_t type_before_03 = b.board[0][3].gem_type;  /* RED  */
-
-    /* Manually record undo state (controller normally does this) */
-    b.undo_r1        = 0; b.undo_c1 = 2;
-    b.undo_r2        = 0; b.undo_c2 = 3;
-    b.undo_score     = b.score;
-    b.undo_available = true;
-
-    /* Perform the swap directly */
-    uint8_t gem_type_02 = b.board[0][2].gem_type;
-    b.board[0][2].gem_type = b.board[0][3].gem_type;
-    b.board[0][3].gem_type = gem_type_02;
-
-    /* Now undo — gems should revert */
-    bool ok = model_undo_move(&b);
-    TEST_ASSERT_TRUE(ok, "Undo must succeed when undo_available is true");
-    TEST_ASSERT_EQ(b.board[0][2].gem_type, type_before_02,
-                   "Undo: gem at (0,2) must revert to original type");
-    TEST_ASSERT_EQ(b.board[0][3].gem_type, type_before_03,
-                   "Undo: gem at (0,3) must revert to original type");
-    TEST_ASSERT_FALSE(b.undo_available,
-                      "Undo must clear undo_available after use");
-}
-
-static void test_undo_null_rejected(void) {
-    bool ok = model_undo_move(NULL);
-    TEST_ASSERT_FALSE(ok, "model_undo_move(NULL) must return false");
-}
 
 static void test_hint_returns_best_scoring_move(void) {
     /* Build a board where two moves exist: one worth 30 pts, one worth 50 */
@@ -765,14 +658,10 @@ static void test_hint_returns_best_scoring_move(void) {
     TEST_ASSERT_TRUE(pts > 0, "Hint move must actually create a match");
 }
 
-/* ================================================================
- *  Main
- * ================================================================ */
-
 int main(void) {
     srand((unsigned int)time(NULL));
 
-    printf("\n=== Match-3 Model Unit Tests ===\n\n");
+    printf("\n测试开始\n\n");
 
     int _prev_failed = 0;
 
@@ -839,22 +728,18 @@ int main(void) {
     RUN_TEST(test_save_load_roundtrip);
     RUN_TEST(test_load_corrupt_file_rejected);
 
-    printf("\n[ Group 13: model_undo_move ]\n");
-    RUN_TEST(test_undo_not_available_initially);
-    RUN_TEST(test_undo_restores_gem_positions);
-    RUN_TEST(test_undo_null_rejected);
 
     printf("\n[ Group 14: model_find_best_hint (optimal) ]\n");
     RUN_TEST(test_hint_returns_best_scoring_move);
 
-    printf("\n=================================\n");
+    printf("\n测试通过情况:\n");
     printf("Results: %d / %d passed", g_tests_passed, g_tests_run);
     if (g_tests_failed == 0) {
         printf("  \xe2\x9c\x93 All tests passed!\n");
     } else {
         printf("  \xe2\x9c\x97 %d test(s) FAILED\n", g_tests_failed);
     }
-    printf("=================================\n\n");
+    printf("\n\n");
 
     return (g_tests_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }

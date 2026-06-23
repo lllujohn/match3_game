@@ -10,10 +10,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-/* ================================================================
- *  Entry point
- * ================================================================ */
-
 int main(int argc, char *argv[])
 {
     (void)argc;
@@ -21,7 +17,7 @@ int main(int argc, char *argv[])
 
     srand((unsigned int)time(NULL));
 
-    /* ---- Initialise subsystems ---- */
+    
     if (!view_init_window()) {
         fprintf(stderr, "[main] view_init_window failed\n");
         return EXIT_FAILURE;
@@ -40,7 +36,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    /* ---- Initialise game board ---- */
+    
     GameBoard board;
 
     if (!model_init_board(&board)) {
@@ -51,7 +47,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    /* Try to restore high_score, coins and difficulty from a previous save */
+    
     {
         GameBoard temp;
         if (model_load_game(&temp, "match3_save.dat")) {
@@ -65,7 +61,7 @@ int main(int argc, char *argv[])
             board.prop_shuffle_count = temp.prop_shuffle_count;
             board.prop_moves_count = temp.prop_moves_count;
         } else {
-            /* First time playing (no save file), give initial gifts */
+            
             board.total_coins = 500;
             board.prop_hammer_count = 1;
             board.prop_wand_count = 1;
@@ -77,21 +73,21 @@ int main(int argc, char *argv[])
     view_set_window_title("Match-3 | A cross-platform puzzle game");
     view_set_bgm(0);
 
-    /* ---- Main loop ---- */
+    /* 主循环 */
     bool   running    = true;
     Uint64 last_ticks = SDL_GetTicks64();
 
     while (running) {
-        /* --- Frame start timestamp --- */
+        /* 记录帧开始时间 */
         Uint64 frame_start = SDL_GetTicks64();
 
-        /* --- Delta time (seconds), clamped to 50 ms max --- */
+        /* 计算并限制增量时间 */
         float dt = (float)(frame_start - last_ticks) / 1000.0f;
         last_ticks = frame_start;
         if (dt > 0.05f)
             dt = 0.05f;
 
-        /* --- Event drain (non-blocking) --- */
+        /* 处理事件 */
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
@@ -107,7 +103,7 @@ int main(int argc, char *argv[])
         if (!running)
             break;
 
-        /* --- Logic update --- */
+        /* 逻辑更新 */
         bool in_game = (board.current_state != GAME_STATE_MAIN_MENU    &&
                         board.current_state != GAME_STATE_DIFFICULTY_SELECTION &&
                         board.current_state != GAME_STATE_PAUSED        &&
@@ -118,16 +114,16 @@ int main(int argc, char *argv[])
             controller_update_state_machine(&board, dt);
         }
 
-        /* --- Render --- */
+        /* 渲染 */
         view_render_frame(&board);
 
-        /* --- Frame-rate cap: sleep for remainder of 16 ms budget --- */
+        
         Uint64 frame_elapsed = SDL_GetTicks64() - frame_start;
         if (frame_elapsed < (Uint64)FRAME_MS)
             SDL_Delay((Uint32)(FRAME_MS - frame_elapsed));
     }
 
-    /* ---- Cleanup (reverse init order) ---- */
+    /* 资源清理 */
     model_destroy_board(&board);
     controller_destroy();
     view_unload_assets();
